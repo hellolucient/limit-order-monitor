@@ -254,7 +254,8 @@ export class JupiterLimitOrdersAPI {
         // If we hit rate limit and haven't tried backup yet
         if (error.toString().includes('429') && currentConnection === this.connection) {
           console.log('⚡ Switching to backup RPC...')
-          currentConnection = new Connection(process.env.RPC_ENDPOINT || '')
+          const backupRpc = process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com'
+          currentConnection = new Connection(backupRpc)
           // Don't count this as an attempt, just switch RPC and try again
           attempt--
           continue

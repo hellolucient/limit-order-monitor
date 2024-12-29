@@ -16,9 +16,14 @@ interface OrderSummary {
 type Summary = Record<'CHAOS' | 'LOGOS', OrderSummary>
 
 export function useLimitOrders(autoRefresh = false) {
-  const [connection] = useState(() => 
-    new Connection(process.env.NEXT_PUBLIC_RPC_URL || '')
-  )
+  const [connection] = useState(() => {
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL
+    if (!rpcUrl) {
+      console.warn('No RPC URL provided, using fallback')
+      return new Connection('https://api.mainnet-beta.solana.com')
+    }
+    return new Connection(rpcUrl)
+  })
   const [orders, setOrders] = useState<LimitOrder[]>([])
   const [summary, setSummary] = useState<Summary>({
     CHAOS: { buyOrders: 0, sellOrders: 0, buyVolume: 0, sellVolume: 0 },
