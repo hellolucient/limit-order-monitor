@@ -26,10 +26,7 @@ src/components/
 │       - Date sorting
 │
 └── charts/
-    └── VolumeChart.tsx  # Volume visualization
-        - Buy/Sell volume display
-        - Order count tracking
-        - Daily/Weekly views
+    └── OrderBookChart.tsx  # Order book visualization
 
 ### Business Logic
 
