@@ -1,3 +1,11 @@
+export interface OrderPoint {
+  x: number  // Price
+  y: number  // Volume
+  timestamp: number
+  orderCount: number
+}
+
 export interface ChartData {
-  // Chart data type definitions
+  buyOrders: OrderPoint[]
+  sellOrders: OrderPoint[]
 }

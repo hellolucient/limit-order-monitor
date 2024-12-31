@@ -611,4 +611,79 @@ src/
      currentConnection = new Connection(process.env.RPC_ENDPOINT)
    }
    ``` 
-    
+    Here's a clear explanation of how we handle the timestamp in the Jupiter Limit Orders:
+Data Structure:
+
+// The order data has variable-length fields, so we calculate offsets:
+const expiredAtDiscriminator = data[248]
+const expiredAtLength = expiredAtDiscriminator === 1 ? 9 : 1
+const feeBpsStart = 248 + expiredAtLength    // feeBps is 2 bytes
+const feeAccountStart = feeBpsStart + 2      // feeAccount is 32 bytes
+const createdAtStart = feeAccountStart + 32   // createdAt is 8 bytes (i64)
+
+
+Reading the Timestamp:
+
+const getTimestamp = (offset: number): string => {
+  try {
+    // Read as two 32-bit integers (little-endian)
+    const low = dataView.getUint32(offset, true)
+    const high = dataView.getUint32(offset + 4, true)
+    // Combine into 64-bit number
+    const timestamp = low + (high * 4294967296) // 2^32
+    // Convert from seconds to milliseconds for JavaScript Date
+    return new Date(timestamp * 1000).toISOString()
+  } catch {
+    return new Date().toISOString()
+  }
+}
+
+
+Formatting for Display:
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr)
+  const month = date.toLocaleString('en-US', { month: 'short' })
+  const day = date.getUTCDate()
+  const hours = String(date.getUTCHours()).padStart(2, '0')
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+  return `${month} ${day}, ${hours}:${minutes} UTC`
+}
+
+
+
+Here's a markdown explanation for the README:
+
+## Timestamp Handling in Jupiter Limit Orders
+
+The timestamp in Jupiter Limit Order data is stored as a 64-bit integer (i64) representing seconds since Unix epoch. Due to the variable-length fields in the order data structure, we need to calculate the correct offset to read the timestamp:
+
+1. Start at byte 248 for the expiredAt discriminator
+2. Calculate subsequent field offsets:
+   - expiredAt length (1 or 9 bytes based on discriminator)
+   - feeBps (2 bytes)
+   - feeAccount (32 bytes)
+   - createdAt (8 bytes, i64)
+
+To read the timestamp:
+1. Read as two 32-bit integers (low and high bits)
+2. Combine them: `timestamp = low + (high * 2^32)`
+3. Convert from seconds to milliseconds: `timestamp * 1000`
+4. Create JavaScript Date: `new Date(timestamp * 1000)`
+
+Common issues:
+- Reading from wrong offset (timestamps will show as Jan 1, 1970)
+- Not converting seconds to milliseconds (dates will be from 1970)
+- Not handling the variable-length fields before the timestamp
+
+
+
+
+
+
+
+
+
+
+
+

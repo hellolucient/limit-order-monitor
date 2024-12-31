@@ -1,3 +1,2 @@
 export * from './client'
-export * from './types'
-export * from './utils/tokenConfig' 
+export * from './types' 

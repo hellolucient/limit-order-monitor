@@ -8,17 +8,22 @@
     "start": "next start",
     "lint": "next lint",
     "analyze": "ts-node --project scripts/tsconfig.json scripts/analyze-chaos-orders.ts",
-    "chart": "ts-node --project scripts/tsconfig.json scripts/generate-chart-data.ts"
+    "chart": "ts-node --project scripts/tsconfig.json scripts/generate-chart-data.ts",
+    "fetch-tokens": "ts-node --project scripts/tsconfig.json scripts/fetch-jupiter-tokens.ts",
+    "fetch-prices": "ts-node --project scripts/tsconfig.json scripts/fetch-prices.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.1",
+    "@metaplex-foundation/mpl-token-metadata": "^3.3.0",
     "@solana/web3.js": "^1.91.1",
     "@types/recharts": "^1.8.29",
+    "axios": "^1.7.9",
     "bn.js": "^5.2.1",
     "bufferutil": "^4.0.8",
     "date-fns": "^4.1.0",
     "encoding": "^0.1.13",
     "next": "15.1.2",
+    "node-fetch": "^3.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.15.0",

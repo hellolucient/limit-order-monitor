@@ -1,18 +1,20 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import type { LimitOrder } from '../lib/types'
-import { PriceService } from '../lib/services/PriceService'
+import { LimitOrder } from '../lib/types'
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
 
-interface LimitOrderCardProps {
+const USDC_ADDRESS = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+const USDT_ADDRESS = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
+
+interface Props {
   order: LimitOrder
+  tokenPrices: Map<string, number>
 }
 
-export function LimitOrderCard({ order }: LimitOrderCardProps) {
+export function LimitOrderCard({ order, tokenPrices }: Props) {
   const isBuy = order.orderType === 'BUY'
-  const colorClass = isBuy ? 'text-green-500' : 'text-red-500'
-  const dotColorClass = isBuy ? 'bg-green-500' : 'bg-red-500'
+  const colorClass = isBuy ? 'text-green-400' : 'text-red-400'
   const [usdcPrice, setUsdcPrice] = useState<number | null>(null)
   const [totalUSDC, setTotalUSDC] = useState<number | null>(null)
 
@@ -24,47 +26,38 @@ export function LimitOrderCard({ order }: LimitOrderCardProps) {
   const total = isBuy ? order.makingAmount : order.takingAmount
 
   useEffect(() => {
-    const fetchUsdcPrices = async () => {
-      const priceService = PriceService.getInstance()
-      const inputSymbol = order.inputMint.symbol
-      const outputSymbol = order.outputMint.symbol
+    const calculateUsdcValues = () => {
+      const inputAddress = order.inputMint.address
+      const outputAddress = order.outputMint.address
 
-      // For USDT pairs, we can use the price directly as USDC (1:1 peg)
-      if (inputSymbol === 'USDT' || outputSymbol === 'USDT') {
+      // For USDT or USDC pairs, we can use the price directly
+      if (inputAddress === USDT_ADDRESS || outputAddress === USDT_ADDRESS ||
+          inputAddress === USDC_ADDRESS || outputAddress === USDC_ADDRESS) {
         setUsdcPrice(order.price)
         setTotalUSDC(total)
         return
       }
 
-      // Skip if already in USDC
-      if (inputSymbol === 'USDC' || outputSymbol === 'USDC') {
-        setUsdcPrice(order.price)
-        setTotalUSDC(total)
-        return
-      }
+      // Get prices from the map
+      const inputPrice = tokenPrices.get(inputAddress)
+      const outputPrice = tokenPrices.get(outputAddress)
 
-      try {
-        // Convert execution price to USDC
-        const priceInUsdc = await priceService.convertExecutionPrice(
-          order.price,
-          inputSymbol,
-          outputSymbol
-        )
-        setUsdcPrice(priceInUsdc || null)
+      if (inputPrice !== undefined && outputPrice !== undefined) {
+        // Calculate USDC price
+        const priceInUsdc = order.price * (inputPrice / outputPrice)
+        setUsdcPrice(priceInUsdc)
 
-        // Convert total to USDC
-        const totalInUsdc = await priceService.convertToUsdc(
-          total,
-          isBuy ? inputSymbol : outputSymbol
-        )
+        // Calculate total in USDC
+        const totalInUsdc = total * (isBuy ? inputPrice : outputPrice)
         setTotalUSDC(totalInUsdc)
-      } catch (error) {
-        console.error('Error converting prices to USDC:', error)
+      } else {
+        setUsdcPrice(null)
+        setTotalUSDC(null)
       }
     }
 
-    fetchUsdcPrices()
-  }, [order, isBuy, total])
+    calculateUsdcValues()
+  }, [order, isBuy, total, tokenPrices])
 
   // Format amounts based on token type
   const formatAmount = (value: number, symbol: string) => {
@@ -75,7 +68,8 @@ export function LimitOrderCard({ order }: LimitOrderCardProps) {
   }
 
   // Format price with consistent decimals
-  const formatPrice = (value: number) => {
+  const formatPrice = (value: number | null) => {
+    if (value === null) return 'N/A'
     // For very small numbers (less than 0.000001), show more decimal places
     if (value > 0 && value < 0.000001) {
       return value.toLocaleString('en-US', { minimumFractionDigits: 12, maximumFractionDigits: 12 })
@@ -86,79 +80,74 @@ export function LimitOrderCard({ order }: LimitOrderCardProps) {
   // Format date to be more readable
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleString('en-US', {
-      timeZone: 'UTC',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-      timeZoneName: 'short'
-    })
+    const month = date.toLocaleString('en-US', { month: 'short' })
+    const day = date.getUTCDate()
+    const hours = String(date.getUTCHours()).padStart(2, '0')
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+    return `${month} ${day}, ${hours}:${minutes} UTC`
   }
 
   const amountSymbol = isBuy ? order.outputMint.symbol : order.inputMint.symbol
   const totalSymbol = isBuy ? order.inputMint.symbol : order.outputMint.symbol
   const priceSymbol = isBuy ? `${totalSymbol}/${amountSymbol}` : `${totalSymbol}/${amountSymbol}`
 
-  // Determine if we should show USDC price as primary
-  const showUsdcAsPrimary = totalSymbol !== 'USDC'
-
   return (
-    <div className="bg-[#1e1f2e] rounded-lg p-4 mb-3">
+    <div className="bg-[#1a1b23] p-3 border border-gray-700/50 rounded-lg mb-2">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center">
-          <div className={`w-2 h-2 rounded-full ${dotColorClass}`} />
-          <span className={`ml-2 font-medium ${colorClass}`}>{order.orderType}</span>
+        <div className="flex items-center gap-1">
+          <span className={`text-sm ${colorClass}`}>•</span>
+          <span className={`text-sm ${colorClass}`}>{order.orderType}</span>
         </div>
-        <div className="text-gray-400 text-sm">
+        <div className="text-gray-400 text-xs">
           {formatDate(order.createdAt)}
         </div>
       </div>
 
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span>Amount:</span>
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Amount:</span>
           <span>{formatAmount(amount, amountSymbol)} {amountSymbol}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Execution Price:</span>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Execution Price:</span>
           <div className="text-right">
-            {showUsdcAsPrimary && usdcPrice !== null ? (
-              <>
-                <div>≈ ${formatPrice(usdcPrice)} USDC/{amountSymbol}</div>
-                <div className="text-gray-400 text-xs">
-                  {formatPrice(order.price)} {priceSymbol}
-                </div>
-              </>
-            ) : (
-              <div>{formatPrice(order.price)} {priceSymbol}</div>
+            {formatPrice(order.price)} {priceSymbol}
+            {usdcPrice !== null && (
+              <div className="text-gray-400 text-xs">
+                ≈ ${formatPrice(usdcPrice)} USDC/{amountSymbol}
+              </div>
+            )}
+            {usdcPrice === null && (
+              <div className="text-gray-400 text-xs">
+                USDC price not available
+              </div>
             )}
           </div>
         </div>
-        <div className="flex justify-between">
-          <span>Total:</span>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Total:</span>
           <div className="text-right">
-            {showUsdcAsPrimary && totalUSDC !== null ? (
-              <>
-                <div>≈ ${formatAmount(totalUSDC, 'USDC')} USDC</div>
-                <div className="text-gray-400 text-xs">
-                  {formatAmount(total, totalSymbol)} {totalSymbol}
-                </div>
-              </>
-            ) : (
-              <div>{formatAmount(total, totalSymbol)} {totalSymbol}</div>
+            {formatAmount(total, totalSymbol)} {totalSymbol}
+            {totalUSDC !== null && (
+              <div className="text-gray-400 text-xs">
+                ≈ ${formatAmount(totalUSDC, 'USDC')} USDC
+              </div>
+            )}
+            {totalUSDC === null && (
+              <div className="text-gray-400 text-xs">
+                USDC total not available
+              </div>
             )}
           </div>
         </div>
-        <div className="pt-2 border-t border-gray-700">
+        <div className="pt-1 border-t border-gray-700/50">
           <a
             href={`https://solscan.io/account/${order.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-gray-400 hover:text-gray-300 transition-colors"
+            className="flex items-center gap-1 text-gray-400 hover:text-gray-300 transition-colors text-xs"
           >
-            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
             View on Solscan
           </a>
         </div>
