@@ -14,6 +14,7 @@ export default function Home() {
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [isPriceRefreshing, setPriceRefreshing] = useState(false)
   const [isOrdersRefreshing, setOrdersRefreshing] = useState(false)
+  const [isPriceFetching, setIsPriceFetching] = useState(false)
 
   // Get orders for selected token
   const { orders, loading: ordersLoading, refresh: refreshOrders } = useLimitOrders(
@@ -38,18 +39,23 @@ export default function Home() {
   const fetchAllPrices = useCallback(async () => {
     if (!orders || orders.length === 0 || !selectedToken) return
 
-    const priceService = PriceService.getInstance()
-    
-    // Get unique token addresses from orders
-    const uniqueTokens = new Set<string>()
-    orders.forEach(order => {
-      uniqueTokens.add(order.inputMint.address)
-      uniqueTokens.add(order.outputMint.address)
-    })
+    setIsPriceFetching(true)
+    try {
+      const priceService = PriceService.getInstance()
+      
+      // Get unique token addresses from orders
+      const uniqueTokens = new Set<string>()
+      orders.forEach(order => {
+        uniqueTokens.add(order.inputMint.address)
+        uniqueTokens.add(order.outputMint.address)
+      })
 
-    // Fetch prices for all tokens
-    const prices = await priceService.fetchPricesForAddresses(Array.from(uniqueTokens))
-    setTokenPrices(prices)
+      // Fetch prices for all tokens
+      const prices = await priceService.fetchPricesForAddresses(Array.from(uniqueTokens))
+      setTokenPrices(prices)
+    } finally {
+      setIsPriceFetching(false)
+    }
   }, [orders, selectedToken])
 
   // Effect to fetch prices when orders change
@@ -156,6 +162,7 @@ export default function Home() {
               currentPrice={currentPrice || 0}
               tokenPrices={tokenPrices}
               autoRefresh={autoRefresh}
+              isPriceFetching={isPriceFetching}
             />
           </div>
         )}

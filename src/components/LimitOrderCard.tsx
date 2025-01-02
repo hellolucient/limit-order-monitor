@@ -30,26 +30,40 @@ export function LimitOrderCard({ order, tokenPrices }: Props) {
       const inputAddress = order.inputMint.address
       const outputAddress = order.outputMint.address
 
-      // For USDT or USDC pairs, we can use the price directly
-      if (inputAddress === USDT_ADDRESS || outputAddress === USDT_ADDRESS ||
-          inputAddress === USDC_ADDRESS || outputAddress === USDC_ADDRESS) {
-        setUsdcPrice(order.price)
-        setTotalUSDC(total)
-        return
-      }
+      // Debug logging
+      console.log('Order details:', {
+        type: order.orderType,
+        inputToken: order.inputMint.symbol,
+        outputToken: order.outputMint.symbol,
+        inputAddress,
+        outputAddress,
+        amount,
+        total,
+        price: order.price,
+        inputPrice: tokenPrices.get(inputAddress),
+        outputPrice: tokenPrices.get(outputAddress)
+      })
 
       // Get prices from the map
       const inputPrice = tokenPrices.get(inputAddress)
       const outputPrice = tokenPrices.get(outputAddress)
 
-      if (inputPrice !== undefined && outputPrice !== undefined) {
-        // Calculate USDC price
-        const priceInUsdc = order.price * (inputPrice / outputPrice)
-        setUsdcPrice(priceInUsdc)
-
-        // Calculate total in USDC
-        const totalInUsdc = total * (isBuy ? inputPrice : outputPrice)
-        setTotalUSDC(totalInUsdc)
+      // For both buy and sell orders, we need the price token's USDC price
+      const priceTokenUsdcPrice = isBuy ? inputPrice : outputPrice
+      
+      if (priceTokenUsdcPrice !== undefined) {
+        // Protect against infinity when calculating USDC price
+        const calculatedUsdcPrice = order.price * priceTokenUsdcPrice
+        setUsdcPrice(isFinite(calculatedUsdcPrice) ? calculatedUsdcPrice : null)
+        
+        // Calculate total in USDC using the relevant token's price
+        const relevantPrice = isBuy ? inputPrice : outputPrice
+        if (relevantPrice !== undefined) {
+          const calculatedTotalUSDC = total * relevantPrice
+          setTotalUSDC(isFinite(calculatedTotalUSDC) ? calculatedTotalUSDC : 0)
+        } else {
+          setTotalUSDC(null)
+        }
       } else {
         setUsdcPrice(null)
         setTotalUSDC(null)
@@ -57,7 +71,7 @@ export function LimitOrderCard({ order, tokenPrices }: Props) {
     }
 
     calculateUsdcValues()
-  }, [order, isBuy, total, tokenPrices])
+  }, [order, isBuy, total, tokenPrices, amount])
 
   // Format amounts based on token type
   const formatAmount = (value: number, symbol: string) => {
@@ -70,6 +84,7 @@ export function LimitOrderCard({ order, tokenPrices }: Props) {
   // Format price with consistent decimals
   const formatPrice = (value: number | null) => {
     if (value === null) return 'N/A'
+    if (!isFinite(value)) return 'N/A'
     // For very small numbers (less than 0.000001), show more decimal places
     if (value > 0 && value < 0.000001) {
       return value.toLocaleString('en-US', { minimumFractionDigits: 12, maximumFractionDigits: 12 })

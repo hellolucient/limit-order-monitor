@@ -41,11 +41,14 @@ export class PriceService {
         const outputDecimals = this.getTokenDecimals(USDC_ADDRESS)
         const inputAmount = Math.pow(10, inputDecimals)
 
-        console.log('Fetching price for token:', {
-          address: tokenAddress,
-          decimals: inputDecimals,
-          amount: inputAmount
-        })
+        // Reduce logging noise
+        if (attempt === 0) {  // Only log on first attempt
+          console.log('Fetching price for token:', {
+            address: tokenAddress,
+            decimals: inputDecimals,
+            amount: inputAmount
+          })
+        }
 
         const response = await fetch(
           `/api/price?tokenAddress=${tokenAddress}&amount=${inputAmount}`,
@@ -57,24 +60,33 @@ export class PriceService {
           }
         )
 
+        // Handle rate limits
         if (response.status === 429) {
-          // Get retry delay from header or use exponential backoff
           const retryAfter = parseInt(response.headers.get('Retry-After') || '0')
           const delay = retryAfter * 1000 || baseDelay * Math.pow(2, attempt)
-          console.log(`Rate limited for ${tokenAddress}, waiting ${delay}ms before retry`)
+          console.warn(`Rate limited for ${tokenAddress}, retrying in ${delay}ms`)
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          console.error(`API error for ${tokenAddress}:`, errorData)
+        const data = await response.json()
+
+        // Check for expected error responses (now returned as 200)
+        if (data.code === 'COULD_NOT_FIND_ANY_ROUTE' || data.code === 'TOKEN_NOT_TRADABLE') {
+          if (attempt === 0) { // Only log on first attempt
+            console.info(`Token not available: ${tokenAddress} (${data.code})`)
+          }
           return null
         }
 
-        const data = await response.json()
+        // Handle unexpected errors
+        if (!response.ok) {
+          console.warn(`Price API error for ${tokenAddress} (${response.status}):`, data)
+          return null
+        }
+
         if (!data.outAmount) {
-          console.error(`No quote data for ${tokenAddress}`)
+          console.warn(`No quote data for ${tokenAddress}`)
           return null
         }
 

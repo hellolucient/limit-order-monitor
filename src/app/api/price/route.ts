@@ -45,10 +45,18 @@ export async function GET(request: Request) {
         error: responseText,
         headers: Object.fromEntries(response.headers.entries())
       }
-      console.error('Jupiter API error:', errorDetails)
       
-      // Special handling for rate limits
+      // Parse error response
+      let errorResponse
+      try {
+        errorResponse = JSON.parse(responseText)
+      } catch {
+        errorResponse = { error: responseText }
+      }
+
+      // Handle specific error cases
       if (response.status === 429) {
+        console.warn(`Rate limit hit for token ${tokenAddress}`)
         return NextResponse.json(
           { error: 'Rate limit exceeded', details: errorDetails },
           { 
@@ -60,6 +68,22 @@ export async function GET(request: Request) {
         )
       }
 
+      // Handle expected errors quietly (no route, not tradable)
+      if (response.status === 400 && 
+          (errorResponse?.errorCode === 'COULD_NOT_FIND_ANY_ROUTE' || 
+           errorResponse?.errorCode === 'TOKEN_NOT_TRADABLE')) {
+        console.info(`Token not available: ${tokenAddress} (${errorResponse.errorCode})`)
+        return NextResponse.json(
+          { 
+            error: errorResponse.error || 'Token not available',
+            code: errorResponse.errorCode
+          },
+          { status: 200 }  // Return 200 instead of 400 for expected cases
+        )
+      }
+
+      // Log other errors as warnings
+      console.warn(`Jupiter API error for ${tokenAddress}:`, errorResponse)
       return NextResponse.json(
         { error: `Jupiter API error: ${response.status}`, details: errorDetails },
         { status: response.status }

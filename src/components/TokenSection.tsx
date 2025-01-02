@@ -15,13 +15,15 @@ interface TokenSectionProps {
   currentPrice: number
   tokenPrices: Map<string, number>
   autoRefresh?: boolean
+  isPriceFetching?: boolean
 }
 
 export function TokenSection({ 
   tokenConfig, 
   currentPrice, 
   tokenPrices,
-  autoRefresh = false 
+  autoRefresh = false,
+  isPriceFetching = false
 }: TokenSectionProps) {
   const [buySort, setBuySort] = useState<SortOption>('date-desc')
   const [sellSort, setSellSort] = useState<SortOption>('date-desc')
@@ -55,10 +57,21 @@ export function TokenSection({
   }, [orders, tokenConfig.address])
 
   const tokenOrders = useMemo(() => 
-    orders?.filter(order => 
-      order.inputMint.address === tokenConfig.address || 
-      order.outputMint.address === tokenConfig.address
-    ) ?? [], 
+    orders?.filter(order => {
+      // First check if it's related to our token
+      const isRelevantToken = order.inputMint.address === tokenConfig.address || 
+        order.outputMint.address === tokenConfig.address
+
+      if (!isRelevantToken) return false
+
+      // Calculate amounts based on order type
+      const amount = order.orderType === 'BUY' ? order.takingAmount : order.makingAmount
+      const total = order.orderType === 'BUY' ? order.makingAmount : order.takingAmount
+
+      // Filter out effectively empty orders
+      const isEffectivelyEmpty = amount < 0.000001 || total < 0.000001
+      return !isEffectivelyEmpty
+    }) ?? [], 
     [orders, tokenConfig.address]
   )
 
@@ -127,7 +140,12 @@ export function TokenSection({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <div className="bg-[#1e1f2e] p-4 rounded">
           <div>
-            <div className="text-green-500 text-sm">Buy Orders</div>
+            <div className="text-green-500 text-sm flex items-center gap-2">
+              Buy Orders
+              {isPriceFetching && (
+                <div className="w-3 h-3 border-t-2 border-green-500 rounded-full animate-spin" />
+              )}
+            </div>
             <div className="text-2xl font-bold">{tokenSummary.buyOrders}</div>
             <div className="text-sm">
               {tokenSummary.buyVolume.toLocaleString()} {tokenConfig.symbol}
@@ -140,7 +158,12 @@ export function TokenSection({
         
         <div className="bg-[#1e1f2e] p-4 rounded">
           <div>
-            <div className="text-red-500 text-sm">Sell Orders</div>
+            <div className="text-red-500 text-sm flex items-center gap-2">
+              Sell Orders
+              {isPriceFetching && (
+                <div className="w-3 h-3 border-t-2 border-red-500 rounded-full animate-spin" />
+              )}
+            </div>
             <div className="text-2xl font-bold">{tokenSummary.sellOrders}</div>
             <div className="text-sm">
               {tokenSummary.sellVolume.toLocaleString()} {tokenConfig.symbol}
