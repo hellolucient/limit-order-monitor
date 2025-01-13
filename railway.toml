@@ -1,9 +1,10 @@
 [build]
-builder = "DOCKERFILE"
+builder = "nixpacks"
+buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run start"
-restartPolicy = "always"
-
-[service]
-name = "jup-lo" 
+startCommand = "npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+numFailures = 10 
