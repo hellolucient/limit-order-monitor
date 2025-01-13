@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL?.trim()  // Trim any whitespace
   console.log('Raw RPC URL:', rpcUrl)
   
   if (!rpcUrl) {
@@ -13,35 +13,35 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('Proxying RPC request:', body)
     
-    // Parse the API key from the RPC URL
+    // Parse the API key from the RPC URL - handle Helius format specifically
     const url = new URL(rpcUrl)
-    console.log('URL params:', Object.fromEntries(url.searchParams.entries()))
-    
-    const apiKey = url.searchParams.get('api-key')
+    const apiKey = url.searchParams.get('api-key')?.trim() // Trim any whitespace from the key
     console.log('Found API key:', apiKey ? 'yes (length: ' + apiKey.length + ')' : 'no')
     
-    // Remove the API key from the URL
-    url.searchParams.delete('api-key')
-    const cleanRpcUrl = url.toString()
-    console.log('Clean RPC URL:', cleanRpcUrl)
+    if (!apiKey) {
+      console.error('No API key found in RPC URL')
+      return new NextResponse(JSON.stringify({
+        jsonrpc: '2.0',
+        error: {
+          code: -32401,
+          message: 'API key not found in RPC URL'
+        },
+        id: null
+      }), { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+    }
     
-    // Check if API key might be in a different format
-    const possibleApiKey = new URLSearchParams(url.search).get('apiKey') || 
-                          new URLSearchParams(url.search).get('key') ||
-                          new URLSearchParams(url.search).get('access_key')
+    // For Helius, we keep the API key in the URL
+    console.log('Using Helius RPC with API key')
     
-    const finalApiKey = apiKey || possibleApiKey || ''
-    console.log('Using API key:', finalApiKey ? 'yes (length: ' + finalApiKey.length + ')' : 'no')
-    
-    const response = await fetch(cleanRpcUrl, {
+    const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': finalApiKey,
-        // Try alternative header names
-        'api-key': finalApiKey,
-        'apikey': finalApiKey,
-        'key': finalApiKey,
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     })
 
     const data = await response.json()
-    console.log('RPC response:', data)
+    console.log('RPC response status:', response.status)
     
     return new NextResponse(JSON.stringify(data), {
       status: response.status,
