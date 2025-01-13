@@ -4,7 +4,9 @@ buildCommand = "npm run build"
 
 [deploy]
 startCommand = "npm start"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 100
+healthcheckPath = "/"
 restartPolicyType = "on_failure"
-numFailures = 10 
+numFailures = 3
+
+[variables]
+NIXPACKS_NODE_VERSION = "18.19.0" 
