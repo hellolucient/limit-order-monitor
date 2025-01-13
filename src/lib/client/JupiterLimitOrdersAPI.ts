@@ -35,7 +35,6 @@ export class JupiterLimitOrdersAPI {
     console.log('Raw process.env:', process.env);
     console.log('Window object:', typeof window !== 'undefined' ? window : 'Not in browser');
     
-    // Use the full URL for the proxied RPC endpoint
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
       : process.env.NEXT_PUBLIC_VERCEL_URL 
@@ -45,7 +44,18 @@ export class JupiterLimitOrdersAPI {
     const rpcUrl = `${baseUrl}/api/rpc`;
     console.log('Using proxied RPC URL:', rpcUrl);
     
-    this.connection = new Connection(rpcUrl);
+    this.connection = new Connection(rpcUrl, {
+      commitment: 'confirmed',
+      fetch: async (url, options) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        return response;
+      }
+    });
   }
 
   private async retryWithBackoff<T>(
