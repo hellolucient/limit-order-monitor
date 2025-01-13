@@ -10,10 +10,20 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('Proxying RPC request:', body)
     
-    const response = await fetch(rpcUrl, {
+    // Parse the API key from the RPC URL
+    const url = new URL(rpcUrl)
+    const apiKey = url.searchParams.get('api-key')
+    
+    // Remove the API key from the URL
+    url.searchParams.delete('api-key')
+    const cleanRpcUrl = url.toString()
+    
+    const response = await fetch(cleanRpcUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // Add the API key in the header
+        'x-api-key': apiKey || '',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
