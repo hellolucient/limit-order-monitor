@@ -33,7 +33,11 @@ export class JupiterLimitOrdersAPI {
 
   constructor() {
     const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com'
-    console.log('Using RPC URL:', rpcUrl)
+    console.log('Environment variables:', {
+      NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL,
+      NODE_ENV: process.env.NODE_ENV
+    })
+    console.log('Initializing JupiterLimitOrdersAPI with RPC URL:', rpcUrl)
     this.connection = new Connection(rpcUrl)
   }
 
@@ -55,6 +59,7 @@ export class JupiterLimitOrdersAPI {
 
   async getOrders(tokenAddress: string): Promise<LimitOrder[]> {
     console.log('Fetching orders for:', tokenAddress)
+    console.log('Using RPC connection:', this.connection.rpcEndpoint)
     
     try {
       // Validate token first

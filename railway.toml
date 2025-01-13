@@ -1,0 +1,9 @@
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = "npm run start"
+restartPolicy = "always"
+
+[service]
+name = "jup-lo" 

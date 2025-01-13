@@ -28,6 +28,11 @@
       {
         "name": "next"
       }
+    ],
+    "types": [
+      "node",
+      "express",
+      "cors"
     ]
   },
   "include": [
