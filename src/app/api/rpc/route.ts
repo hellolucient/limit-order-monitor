@@ -20,9 +20,28 @@ export async function POST(request: Request) {
     })
 
     const data = await response.json()
-    return NextResponse.json(data)
+    
+    // Return the raw response with proper headers
+    return new NextResponse(JSON.stringify(data), {
+      status: response.status,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
   } catch (error) {
     console.error('RPC proxy error:', error)
-    return new NextResponse('RPC request failed', { status: 500 })
+    return new NextResponse(JSON.stringify({
+      jsonrpc: '2.0',
+      error: {
+        code: -32603,
+        message: 'Internal error',
+      },
+      id: null
+    }), { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
   }
 } 
