@@ -41,21 +41,12 @@ export class JupiterLimitOrdersAPI {
         ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
         : 'http://localhost:3000';
     
-    const rpcUrl = `${baseUrl}/api/rpc`;
-    console.log('Using proxied RPC URL:', rpcUrl);
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com'
+    console.log('Using RPC URL:', rpcUrl)
     
     this.connection = new Connection(rpcUrl, {
-      commitment: 'confirmed',
-      fetch: async (url, options) => {
-        const response = await fetch(url, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        return response;
-      }
-    });
+      commitment: 'confirmed'
+    })
   }
 
   private async retryWithBackoff<T>(
