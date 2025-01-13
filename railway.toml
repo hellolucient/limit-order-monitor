@@ -1,12 +1,12 @@
 [build]
-builder = "nixpacks"
+builder = "NIXPACKS"
 buildCommand = "npm run build"
 
 [deploy]
 startCommand = "npm start"
-healthcheckPath = "/"
-restartPolicyType = "on_failure"
-numFailures = 3
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
 
 [variables]
-NIXPACKS_NODE_VERSION = "18.19.0" 
+NODE_ENV = "production" 
