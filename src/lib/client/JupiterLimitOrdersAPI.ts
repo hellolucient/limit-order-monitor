@@ -32,17 +32,12 @@ export class JupiterLimitOrdersAPI {
   private connection: Connection
 
   constructor() {
-    console.log('Raw process.env:', process.env);
-    console.log('Window object:', typeof window !== 'undefined' ? window : 'Not in browser');
-    
-    const baseUrl = typeof window !== 'undefined' 
-      ? window.location.origin 
-      : process.env.NEXT_PUBLIC_VERCEL_URL 
-        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-        : 'http://localhost:3000';
+    console.log('All env vars:', process.env);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('NEXT_PUBLIC_RPC_URL:', process.env.NEXT_PUBLIC_RPC_URL);
     
     const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com'
-    console.log('Using RPC URL:', rpcUrl)
+    console.log('Final RPC URL:', rpcUrl);
     
     this.connection = new Connection(rpcUrl, {
       commitment: 'confirmed'
