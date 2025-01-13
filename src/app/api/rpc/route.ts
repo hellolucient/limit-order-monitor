@@ -35,15 +35,14 @@ export async function POST(request: Request) {
       })
     }
     
-    // For Helius, construct the URL without query parameters
-    const baseUrl = url.origin
-    console.log('Using Helius base URL:', baseUrl)
+    // Construct the Helius URL with the API key
+    const heliusUrl = `${url.origin}/${apiKey}`
+    console.log('Using Helius URL:', heliusUrl)
     
-    const response = await fetch(baseUrl, {
+    const response = await fetch(heliusUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
