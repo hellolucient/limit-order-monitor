@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('Proxying RPC request:', body)
     
-    // Parse the API key from the RPC URL - handle Helius format specifically
+    // Parse the API key from the RPC URL
     const url = new URL(rpcUrl)
     const apiKey = url.searchParams.get('api-key')?.trim() // Trim any whitespace from the key
     console.log('Found API key:', apiKey ? 'yes (length: ' + apiKey.length + ')' : 'no')
@@ -35,13 +35,15 @@ export async function POST(request: Request) {
       })
     }
     
-    // For Helius, we keep the API key in the URL
-    console.log('Using Helius RPC with API key')
+    // For Helius, construct the URL without query parameters
+    const baseUrl = url.origin
+    console.log('Using Helius base URL:', baseUrl)
     
-    const response = await fetch(rpcUrl, {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -53,6 +55,9 @@ export async function POST(request: Request) {
 
     const data = await response.json()
     console.log('RPC response status:', response.status)
+    if (response.status !== 200) {
+      console.log('Error response:', data)
+    }
     
     return new NextResponse(JSON.stringify(data), {
       status: response.status,
