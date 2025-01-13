@@ -32,13 +32,23 @@ export class JupiterLimitOrdersAPI {
   private connection: Connection
 
   constructor() {
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com'
-    console.log('Environment variables:', {
-      NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL,
-      NODE_ENV: process.env.NODE_ENV
-    })
-    console.log('Initializing JupiterLimitOrdersAPI with RPC URL:', rpcUrl)
-    this.connection = new Connection(rpcUrl)
+    console.log('Raw process.env:', process.env);
+    console.log('Window object:', typeof window !== 'undefined' ? window : 'Not in browser');
+    
+    // Try different ways to access the RPC URL
+    const rpcUrl = 
+      process.env.NEXT_PUBLIC_RPC_URL || 
+      (typeof window !== 'undefined' && (window as any).ENV?.NEXT_PUBLIC_RPC_URL) ||
+      'https://api.mainnet-beta.solana.com';
+    
+    console.log('Resolved RPC URL:', rpcUrl);
+    console.log('Environment check:', {
+      isClient: typeof window !== 'undefined',
+      isDev: process.env.NODE_ENV === 'development',
+      envVars: process.env
+    });
+    
+    this.connection = new Connection(rpcUrl);
   }
 
   private async retryWithBackoff<T>(
