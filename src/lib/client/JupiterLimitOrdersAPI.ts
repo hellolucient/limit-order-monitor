@@ -35,18 +35,9 @@ export class JupiterLimitOrdersAPI {
     console.log('Raw process.env:', process.env);
     console.log('Window object:', typeof window !== 'undefined' ? window : 'Not in browser');
     
-    // Try different ways to access the RPC URL
-    const rpcUrl = 
-      process.env.NEXT_PUBLIC_RPC_URL || 
-      (typeof window !== 'undefined' && (window as any).ENV?.NEXT_PUBLIC_RPC_URL) ||
-      'https://api.mainnet-beta.solana.com';
-    
-    console.log('Resolved RPC URL:', rpcUrl);
-    console.log('Environment check:', {
-      isClient: typeof window !== 'undefined',
-      isDev: process.env.NODE_ENV === 'development',
-      envVars: process.env
-    });
+    // Use the proxied RPC endpoint
+    const rpcUrl = '/api/rpc';
+    console.log('Using proxied RPC URL:', rpcUrl);
     
     this.connection = new Connection(rpcUrl);
   }
