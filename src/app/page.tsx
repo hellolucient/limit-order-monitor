@@ -50,9 +50,21 @@ export default function Home() {
         uniqueTokens.add(order.outputMint.address)
       })
 
+      const tokenArray = Array.from(uniqueTokens)
+      console.log('Fetching prices for tokens:', tokenArray)
+
       // Fetch prices for all tokens
-      const prices = await priceService.fetchPricesForAddresses(Array.from(uniqueTokens))
+      const prices = await priceService.fetchPricesForAddresses(tokenArray)
+      
+      console.log('Fetched prices:', Array.from(prices.entries()).map(([addr, price]) => ({
+        address: addr,
+        price: price,
+        symbol: orders.find(o => o.inputMint.address === addr || o.outputMint.address === addr)?.inputMint.symbol || 'unknown'
+      })))
+      
       setTokenPrices(prices)
+    } catch (error) {
+      console.error('Error fetching all prices:', error)
     } finally {
       setIsPriceFetching(false)
     }

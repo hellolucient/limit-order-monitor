@@ -35,26 +35,51 @@ export function TokenSection({
       buyOrders: 0,
       sellOrders: 0,
       buyVolume: 0,
-      sellVolume: 0
+      sellVolume: 0,
+      buyVolumeUSDC: 0,
+      sellVolumeUSDC: 0
     }
 
     return orders.reduce((summary, order) => {
-      if (order.inputMint.address === tokenConfig.address) {
-        summary.sellOrders++
-        summary.sellVolume += order.makingAmount
-      }
-      if (order.outputMint.address === tokenConfig.address) {
+      const isBuy = order.outputMint.address === tokenConfig.address
+      const isSell = order.inputMint.address === tokenConfig.address
+      
+      if (isBuy) {
         summary.buyOrders++
         summary.buyVolume += order.takingAmount
+        
+        // Calculate USDC value for buy orders
+        // Buy order: paying SOL (input) to get tokens (output)
+        // USDC value = amount of SOL paid * SOL price in USDC
+        const solPrice = tokenPrices.get(order.inputMint.address)
+        if (solPrice !== undefined) {
+          summary.buyVolumeUSDC += order.makingAmount * solPrice
+        }
       }
+      
+      if (isSell) {
+        summary.sellOrders++
+        summary.sellVolume += order.makingAmount
+        
+        // Calculate USDC value for sell orders
+        // Sell order: giving tokens (input) to get SOL (output)
+        // USDC value = amount of SOL received * SOL price in USDC
+        const solPrice = tokenPrices.get(order.outputMint.address)
+        if (solPrice !== undefined) {
+          summary.sellVolumeUSDC += order.takingAmount * solPrice
+        }
+      }
+      
       return summary
     }, {
       buyOrders: 0,
       sellOrders: 0,
       buyVolume: 0,
-      sellVolume: 0
+      sellVolume: 0,
+      buyVolumeUSDC: 0,
+      sellVolumeUSDC: 0
     })
-  }, [orders, tokenConfig.address])
+  }, [orders, tokenConfig.address, tokenPrices])
 
   const tokenOrders = useMemo(() => 
     orders?.filter(order => {
@@ -150,7 +175,7 @@ export function TokenSection({
             <div className="text-sm">
               {tokenSummary.buyVolume.toLocaleString()} {tokenConfig.symbol}
               <div className="text-gray-400 italic">
-                ${(tokenSummary.buyVolume * currentPrice).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC
+                ${tokenSummary.buyVolumeUSDC.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC
               </div>
             </div>
           </div>
@@ -168,7 +193,7 @@ export function TokenSection({
             <div className="text-sm">
               {tokenSummary.sellVolume.toLocaleString()} {tokenConfig.symbol}
               <div className="text-gray-400 italic">
-                ${(tokenSummary.sellVolume * currentPrice).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC
+                ${tokenSummary.sellVolumeUSDC.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC
               </div>
             </div>
           </div>

@@ -41,7 +41,9 @@ export function LimitOrderCard({ order, tokenPrices }: Props) {
         total,
         price: order.price,
         inputPrice: tokenPrices.get(inputAddress),
-        outputPrice: tokenPrices.get(outputAddress)
+        outputPrice: tokenPrices.get(outputAddress),
+        tokenPricesSize: tokenPrices.size,
+        allTokenPrices: Array.from(tokenPrices.entries())
       })
 
       // Get prices from the map

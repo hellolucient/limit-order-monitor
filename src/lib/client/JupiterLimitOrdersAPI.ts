@@ -36,9 +36,19 @@ export class JupiterLimitOrdersAPI {
     console.log('NODE_ENV:', process.env.NODE_ENV);
     console.log('NEXT_PUBLIC_RPC_URL:', process.env.NEXT_PUBLIC_RPC_URL);
     
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com'
-    console.log('Final RPC URL:', rpcUrl);
+    // Determine RPC URL based on environment
+    let rpcUrl: string
+    if (process.env.NODE_ENV === 'development') {
+      // Use the local proxy in development
+      rpcUrl = 'http://localhost:3000/api/rpc' 
+      console.log('Using local RPC proxy for development:', rpcUrl)
+    } else {
+      // Use the environment variable in production/other environments
+      rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com'
+      console.log('Using configured RPC URL:', rpcUrl)
+    }
     
+    // Create the connection
     this.connection = new Connection(rpcUrl, {
       commitment: 'confirmed'
     })

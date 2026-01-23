@@ -72,9 +72,12 @@ export class PriceService {
         const data = await response.json()
 
         // Check for expected error responses (now returned as 200)
-        if (data.code === 'COULD_NOT_FIND_ANY_ROUTE' || data.code === 'TOKEN_NOT_TRADABLE') {
+        const errorCode = data.code || data.errorCode
+        if (errorCode === 'COULD_NOT_FIND_ANY_ROUTE' || 
+            errorCode === 'TOKEN_NOT_TRADABLE' ||
+            errorCode === 'NO_PRICE_DATA') {
           if (attempt === 0) { // Only log on first attempt
-            console.info(`Token not available: ${tokenAddress} (${data.code})`)
+            console.info(`Token not available: ${tokenAddress} (${errorCode})`)
           }
           return null
         }
@@ -85,13 +88,18 @@ export class PriceService {
           return null
         }
 
-        if (!data.outAmount) {
-          console.warn(`No quote data for ${tokenAddress}`)
+        // Check for outAmount in various possible fields
+        const rawOutAmount = data.outAmount || data.outAmountWithSlippage
+        if (!rawOutAmount) {
+          console.warn(`No quote data for ${tokenAddress}:`, data)
           return null
         }
 
+        // Convert string to number if needed (new API returns strings)
+        const outAmount = typeof rawOutAmount === 'string' ? parseInt(rawOutAmount, 10) : rawOutAmount
+
         // Convert the output amount to USDC price (USDC has 6 decimals)
-        const price = data.outAmount / Math.pow(10, outputDecimals)
+        const price = outAmount / Math.pow(10, outputDecimals)
         return price
       } catch (error) {
         console.error(`Attempt ${attempt + 1} failed for ${tokenAddress}:`, error)
@@ -149,16 +157,19 @@ export class PriceService {
     
     for (const address of tokensToFetch) {
       try {
+        console.log(`Fetching price for token: ${address}`)
         const price = await this.fetchPrice(address)
-        if (price !== null) {
+        if (price !== null && price > 0) {
+          console.log(`Successfully fetched price for ${address}: ${price}`)
           priceMap.set(address, price)
         } else {
+          console.warn(`Failed to fetch price for ${address}: price is ${price}`)
           failedTokens.add(address)
         }
         // Wait before next request
         await new Promise(resolve => setTimeout(resolve, delay))
       } catch (error) {
-        console.warn(`Skipping price fetch for token ${address} due to error:`, error)
+        console.error(`Error fetching price for token ${address}:`, error)
         failedTokens.add(address)
       }
     }
