@@ -10,9 +10,10 @@ const USDT_ADDRESS = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
 interface Props {
   order: LimitOrder
   tokenPrices: Map<string, number>
+  onOrderClick?: (order: LimitOrder) => void
 }
 
-export function LimitOrderCard({ order, tokenPrices }: Props) {
+export function LimitOrderCard({ order, tokenPrices, onOrderClick }: Props) {
   const isBuy = order.orderType === 'BUY'
   const colorClass = isBuy ? 'text-green-400' : 'text-red-400'
   const [usdcPrice, setUsdcPrice] = useState<number | null>(null)
@@ -109,7 +110,12 @@ export function LimitOrderCard({ order, tokenPrices }: Props) {
   const priceSymbol = isBuy ? `${totalSymbol}/${amountSymbol}` : `${totalSymbol}/${amountSymbol}`
 
   return (
-    <div className="bg-[#1a1b23] p-3 border border-gray-700/50 rounded-lg mb-2">
+    <div 
+      className={`bg-[#1a1b23] p-3 border border-gray-700/50 rounded-lg mb-2 ${
+        onOrderClick ? 'cursor-pointer hover:border-blue-500/50 hover:bg-[#1e1f2e] transition-colors' : ''
+      }`}
+      onClick={() => onOrderClick?.(order)}
+    >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1">
           <span className={`text-sm ${colorClass}`}>•</span>
@@ -163,6 +169,7 @@ export function LimitOrderCard({ order, tokenPrices }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-gray-400 hover:text-gray-300 transition-colors text-xs"
+            onClick={(e) => e.stopPropagation()}
           >
             <ArrowTopRightOnSquareIcon className="w-3 h-3" />
             View on Solscan

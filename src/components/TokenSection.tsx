@@ -16,6 +16,7 @@ interface TokenSectionProps {
   tokenPrices: Map<string, number>
   autoRefresh?: boolean
   isPriceFetching?: boolean
+  onOrderClick?: (order: LimitOrder) => void
 }
 
 export function TokenSection({ 
@@ -23,7 +24,8 @@ export function TokenSection({
   currentPrice, 
   tokenPrices,
   autoRefresh = false,
-  isPriceFetching = false
+  isPriceFetching = false,
+  onOrderClick
 }: TokenSectionProps) {
   const [buySort, setBuySort] = useState<SortOption>('date-desc')
   const [sellSort, setSellSort] = useState<SortOption>('date-desc')
@@ -201,10 +203,10 @@ export function TokenSection({
       </div>
 
       {/* Order Lists - Stack on mobile, side by side on desktop */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Buy Orders */}
-        <div className="bg-[#1e1f2e] rounded-lg flex flex-col h-[500px] md:h-[calc(100vh-16rem)]">
-          <div className="p-1.5 border-b border-gray-800">
+        <div className="bg-[#1e1f2e] rounded-lg flex flex-col" style={{ height: '500px' }}>
+          <div className="p-1.5 border-b border-gray-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-green-500">•</span>
@@ -216,20 +218,21 @@ export function TokenSection({
               />
             </div>
           </div>
-          <div className="overflow-y-auto flex-1 p-2">
+          <div className="overflow-y-auto flex-1 min-h-0 p-2">
             {sortedBuyOrders.map(order => (
               <LimitOrderCard 
                 key={order.id} 
                 order={order}
                 tokenPrices={tokenPrices}
+                onOrderClick={onOrderClick}
               />
             ))}
           </div>
         </div>
 
         {/* Sell Orders */}
-        <div className="bg-[#1e1f2e] rounded-lg flex flex-col h-[500px] md:h-[calc(100vh-16rem)]">
-          <div className="p-1.5 border-b border-gray-800">
+        <div className="bg-[#1e1f2e] rounded-lg flex flex-col" style={{ height: '500px' }}>
+          <div className="p-1.5 border-b border-gray-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-red-500">•</span>
@@ -241,12 +244,13 @@ export function TokenSection({
               />
             </div>
           </div>
-          <div className="overflow-y-auto flex-1 p-2">
+          <div className="overflow-y-auto flex-1 min-h-0 p-2">
             {sortedSellOrders.map(order => (
               <LimitOrderCard 
                 key={order.id} 
                 order={order}
                 tokenPrices={tokenPrices}
+                onOrderClick={onOrderClick}
               />
             ))}
           </div>
