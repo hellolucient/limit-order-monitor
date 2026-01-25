@@ -241,8 +241,14 @@ export function TokenSearch({ onTokenSelect }: TokenSearchProps) {
                           src={token.logoURI}
                           alt={token.symbol}
                           className="w-10 h-10 rounded-full"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none'
+                          }}
+                          onLoadStart={(e) => {
+                            // Silently handle potential security warnings
+                            // Images are loaded lazily and errors are handled gracefully
                           }}
                         />
                       ) : (

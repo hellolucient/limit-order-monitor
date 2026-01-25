@@ -9,6 +9,7 @@ import { TradeInterface, TradeData } from '../components/TradeInterface'
 import { WalletButton } from '../components/WalletButton'
 import { Terminal } from '../components/Terminal'
 import { MobileTabs, TabType } from '../components/MobileTabs'
+import { Track } from '../components/Track'
 import { TokenSearch } from '../components/TokenSearch'
 import { TokenInfo } from '../lib/types'
 import { PriceService } from '@/lib/services/PriceService'
@@ -31,10 +32,10 @@ export default function Home() {
   const [selectedInterval, setSelectedInterval] = useState<PriceInterval | null>(null)
   const [isExecutingTrade, setIsExecutingTrade] = useState(false)
 
-  // When a token is selected from Terminal, switch to Track tab
+  // When a token is selected from Terminal or Track, switch to Trade tab
   const handleTokenSelect = (token: TokenInfo) => {
     setSelectedToken(token)
-    setActiveTab('track')
+    setActiveTab('trade')
   }
 
   // Get orders for selected token
@@ -307,11 +308,15 @@ export default function Home() {
       <div className="min-h-[calc(100vh-80px)]">
         {activeTab === 'terminal' ? (
           <Terminal onTokenSelect={handleTokenSelect} />
+        ) : activeTab === 'track' ? (
+          <Track onTokenSelect={handleTokenSelect} />
         ) : (
-          <div className="px-4 py-4">
+          // Trade tab
+          <div className="h-full flex flex-col">
             {!selectedToken ? (
               <TokenSearch onTokenSelect={handleTokenSelect} />
             ) : (
+              <div className="flex-1 overflow-y-auto px-4 py-4">
               <div className="space-y-4">
                 {/* Token Header Card - Mobile Optimized */}
                 <div className="bg-[#1e1f2e] rounded-lg p-4">
@@ -321,6 +326,8 @@ export default function Home() {
                         src={selectedToken.logoURI} 
                         alt={selectedToken.name}
                         className="w-12 h-12 rounded-full border border-gray-600"
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none'
                         }}
@@ -334,14 +341,39 @@ export default function Home() {
                         {selectedToken.symbol} • {selectedToken.address.slice(0, 8)}...
                       </p>
                     </div>
-                    {currentPrice !== null && (
-                      <div className="text-right">
-                        <div className="text-lg font-semibold text-white">
-                          ${currentPrice.toFixed(6)}
+                    <div className="flex items-center gap-3">
+                      {currentPrice !== null && (
+                        <div className="text-right">
+                          <div className="text-lg font-semibold text-white">
+                            ${currentPrice.toFixed(6)}
+                          </div>
+                          <div className="text-xs text-gray-400">USDC</div>
                         </div>
-                        <div className="text-xs text-gray-400">USDC</div>
-                      </div>
-                    )}
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedToken(null)
+                          setSelectedInterval(null)
+                        }}
+                        className="p-2 text-gray-400 hover:text-white transition-colors"
+                        aria-label="Cancel trade"
+                        title="Cancel trade"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Action Buttons - Mobile Friendly */}
@@ -401,6 +433,7 @@ export default function Home() {
                   onOrderClick={handleOrderClick}
                 />
               </div>
+            </div>
             )}
           </div>
         )}

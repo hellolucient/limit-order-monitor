@@ -2,7 +2,7 @@
 
 import React from 'react'
 
-export type TabType = 'terminal' | 'track'
+export type TabType = 'terminal' | 'track' | 'trade'
 
 interface MobileTabsProps {
   activeTab: TabType
@@ -59,6 +59,30 @@ export function MobileTabs({ activeTab, onTabChange }: MobileTabsProps) {
             />
           </svg>
           <span className="text-xs font-medium">Track</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('trade')}
+          className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+            activeTab === 'trade'
+              ? 'text-green-500'
+              : 'text-gray-500'
+          }`}
+        >
+          <svg
+            className="w-6 h-6 mb-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+            />
+          </svg>
+          <span className="text-xs font-medium">Trade</span>
         </button>
       </div>
     </div>
