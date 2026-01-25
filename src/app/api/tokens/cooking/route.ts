@@ -288,69 +288,70 @@ export async function GET(request: Request) {
             }
             
             const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
-          
-          // Fetch batch in parallel
-          const batchPromises = batch.map(async (address) => {
-            try {
-              const currentPriceResponse = await fetch(
-                `https://public-api.birdeye.so/defi/price?address=${address}`,
-                {
-                  headers: {
-                    'X-API-KEY': birdeyeApiKey,
-                    'Accept': 'application/json'
+            
+            // Fetch batch in parallel
+            const batchPromises = batch.map(async (address) => {
+              try {
+                const currentPriceResponse = await fetch(
+                  `https://public-api.birdeye.so/defi/price?address=${address}`,
+                  {
+                    headers: {
+                      'X-API-KEY': birdeyeApiKey,
+                      'Accept': 'application/json'
+                    }
                   }
+                )
+                
+                // Check for rate limit
+                if (currentPriceResponse.status === 429) {
+                  console.warn(`⚠️ Rate limited on price fetch for ${address}`)
+                  return { address, currentPrice: null, priceChange24h: null, rateLimited: true }
                 }
-              )
-              
-              // Check for rate limit
-              if (currentPriceResponse.status === 429) {
-                console.warn(`⚠️ Rate limited on price fetch for ${address}`)
-                return { address, currentPrice: null, priceChange24h: null, rateLimited: true }
+                
+                let currentPrice: number | null = null
+                let priceChange24h: number | null = null
+                
+                if (currentPriceResponse.ok) {
+                  const currentData = await currentPriceResponse.json()
+                  currentPrice = currentData?.data?.value || currentData?.value || currentData?.price || currentData?.data?.price || null
+                  priceChange24h = currentData?.data?.priceChange24h ?? null
+                }
+                
+                return { address, currentPrice, priceChange24h, rateLimited: false }
+              } catch (error) {
+                console.warn(`⚠️ Failed to fetch price for ${address}:`, error)
+                return { address, currentPrice: null, priceChange24h: null, rateLimited: false }
               }
-              
-              let currentPrice: number | null = null
-              let priceChange24h: number | null = null
-              
-              if (currentPriceResponse.ok) {
-                const currentData = await currentPriceResponse.json()
-                currentPrice = currentData?.data?.value || currentData?.value || currentData?.price || currentData?.data?.price || null
-                priceChange24h = currentData?.data?.priceChange24h ?? null
+            })
+            
+            const batchResults = await Promise.all(batchPromises)
+            priceResults.push(...batchResults)
+            
+            // Check if we hit rate limit
+            if (batchResults.some(r => r.rateLimited)) {
+              console.warn(`⚠️ Rate limited, stopping price fetches`)
+              break
+            }
+            
+            // Small delay between batches to respect rate limits (60 rpm = 1 per second)
+            // But we're doing 3 in parallel, so we can wait 1 second between batches
+            if (i + BATCH_SIZE < tokenAddresses.length) {
+              await delay(1000) // 1 second between batches
+            }
+          }
+          
+          // Build price stats map
+          priceResults.forEach((result) => {
+            if (result.address) {
+              priceStatsMap[result.address] = {
+                priceChange24h: result.priceChange24h,
+                currentPrice: result.currentPrice
               }
-              
-              return { address, currentPrice, priceChange24h, rateLimited: false }
-            } catch (error) {
-              console.warn(`⚠️ Failed to fetch price for ${address}:`, error)
-              return { address, currentPrice: null, priceChange24h: null, rateLimited: false }
             }
           })
           
-          const batchResults = await Promise.all(batchPromises)
-          priceResults.push(...batchResults)
-          
-          // Check if we hit rate limit
-          if (batchResults.some(r => r.rateLimited)) {
-            console.warn(`⚠️ Rate limited, stopping price fetches`)
-            break
-          }
-          
-          // Small delay between batches to respect rate limits (60 rpm = 1 per second)
-          // But we're doing 3 in parallel, so we can wait 1 second between batches
-          if (i + BATCH_SIZE < tokenAddresses.length) {
-            await delay(1000) // 1 second between batches
-          }
-        }
-        
-        // Build price stats map
-        priceResults.forEach((result) => {
-          if (result.address) {
-            priceStatsMap[result.address] = {
-              priceChange24h: result.priceChange24h,
-              currentPrice: result.currentPrice
-            }
-          }
-        })
-        
-        console.log(`📊 Price data fetched for ${Object.keys(priceStatsMap).length} tokens`)
+          console.log(`📊 Price data fetched for ${Object.keys(priceStatsMap).length} tokens`)
+        } // Close else block
       } catch (error) {
         console.warn(`⚠️ Failed to fetch price data:`, error)
         // Continue without price stats - we'll use volume only
