@@ -81,7 +81,12 @@ export function LimitOrderCard({ order, tokenPrices, onOrderClick }: Props) {
     if (symbol === 'CHAOS' || symbol === 'LOGOS') {
       return Math.round(value).toLocaleString('en-US', { maximumFractionDigits: 0 })
     }
-    return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    // For very small numbers, show more decimal places to ensure visibility
+    if (value > 0 && value < 0.01) {
+      return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+    }
+    // For normal numbers, show at least 2 decimal places
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
   }
 
   // Format price with consistent decimals

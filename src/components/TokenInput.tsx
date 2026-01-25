@@ -24,7 +24,8 @@ export function TokenInput({ onTokenSelect }: Props) {
 
     try {
       console.log('Looking up token...')
-      const token = await getTokenByMint(address);
+      // Use allowBackgroundFetch=false to ensure we wait for metadata
+      const token = await getTokenByMint(address, false);
       console.log('Token lookup result:', token)
       
       if (token && onTokenSelect) {

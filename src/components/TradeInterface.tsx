@@ -287,7 +287,10 @@ export function TradeInterface({
               <div className="flex justify-between">
                 <span className="text-gray-400">Amount ({tokenInfo.symbol}):</span>
                 <span className="text-white">
-                  {amountNum.toLocaleString()} {tokenInfo.symbol}
+                  {amountNum > 0 && amountNum < 0.01
+                    ? amountNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+                    : amountNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+                  } {tokenInfo.symbol}
                 </span>
               </div>
               <div className="flex justify-between">

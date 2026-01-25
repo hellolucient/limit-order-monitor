@@ -303,10 +303,24 @@ export default function Home() {
         {selectedToken && (
           <div className="mb-4">
             <div className="flex items-center justify-between bg-gray-800 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-4">
-                <h2 className="text-xl font-bold">{selectedToken.symbol}</h2>
+              <div className="flex items-center gap-3">
+                {selectedToken.logoURI && (
+                  <img 
+                    src={selectedToken.logoURI} 
+                    alt={selectedToken.name}
+                    className="w-8 h-8 rounded-full border border-gray-600"
+                    onError={(e) => {
+                      // Hide image if it fails to load
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                )}
+                <span className="text-lg font-semibold text-white">{selectedToken.name}</span>
+                <span className="text-sm text-gray-400">
+                  {selectedToken.address.slice(0, 7)}...
+                </span>
                 {currentPrice !== null && (
-                  <span className="text-lg">
+                  <span className="text-lg text-white">
                     ${currentPrice.toFixed(6)} USDC
                   </span>
                 )}

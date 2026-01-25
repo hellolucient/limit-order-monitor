@@ -104,7 +104,10 @@ export function TradingIntervals({
           <div className="flex justify-between">
             <span className="text-gray-400">Total Volume:</span>
             <span className="text-gray-300">
-              {interval.totalVolume.toLocaleString(undefined, { maximumFractionDigits: 2 })} {tokenSymbol}
+              {interval.totalVolume > 0 && interval.totalVolume < 0.01
+                ? interval.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+                : interval.totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+              } {tokenSymbol}
             </span>
           </div>
         </div>

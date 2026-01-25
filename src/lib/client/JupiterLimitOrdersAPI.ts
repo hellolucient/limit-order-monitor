@@ -75,8 +75,8 @@ export class JupiterLimitOrdersAPI {
     console.log('Using RPC connection:', this.connection.rpcEndpoint)
     
     try {
-      // Validate token first
-      const tokenInfo = await getTokenByMint(tokenAddress)
+      // Validate token first - await the fetch to ensure we have metadata
+      const tokenInfo = await getTokenByMint(tokenAddress, false)
       if (!tokenInfo) {
         throw new Error('Invalid token address')
       }
@@ -113,7 +113,19 @@ export class JupiterLimitOrdersAPI {
         buy: buyAccounts.length
       })
 
-      // Parse orders
+      // Pre-fetch metadata for the tracked token and common quote currencies first
+      // This ensures they're cached before parsing orders
+      // Use allowBackgroundFetch=false to ensure we wait for these important tokens
+      const SOL_MINT = 'So11111111111111111111111111111111111111112'
+      const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      
+      await Promise.all([
+        getTokenByMint(tokenAddress, false), // The token being tracked - await this one!
+        getTokenByMint(SOL_MINT, false),    // Common quote currency - await this one!
+        getTokenByMint(USDC_MINT, false)    // Common quote currency - await this one!
+      ])
+
+      // Parse orders (metadata will be fetched on-demand for other tokens, but cached)
       const sellOrders = await Promise.all(
         sellAccounts.map(acc => this.parseOrder(acc.pubkey, acc.account.data, 'SELL'))
       )
@@ -134,25 +146,14 @@ export class JupiterLimitOrdersAPI {
     data: Buffer,
     orderType: 'BUY' | 'SELL'
   ): Promise<LimitOrder> {
-    console.log('Parsing order:', { pubkey, data, orderType });
-    
     const maker = new PublicKey(data.slice(8, 40))
     const inputMint = new PublicKey(data.slice(40, 72))
     const outputMint = new PublicKey(data.slice(72, 104))
 
-    // Get token info
-    const inputTokenInfo = await getTokenByMint(inputMint.toString())
-    const outputTokenInfo = await getTokenByMint(outputMint.toString())
-
-    console.log('Input token:', inputTokenInfo);
-    console.log('Output token:', outputTokenInfo);
-
-    if (!inputTokenInfo || !outputTokenInfo) {
-      console.log('Using default token info for:', {
-        inputMint: inputMint.toString(),
-        outputMint: outputMint.toString()
-      });
-    }
+    // Get token info - use background fetch mode to avoid blocking on metadata
+    // This allows orders to parse quickly with default values, metadata loads in background
+    const inputTokenInfo = await getTokenByMint(inputMint.toString(), true)
+    const outputTokenInfo = await getTokenByMint(outputMint.toString(), true)
 
     // Parse amounts
     const dataView = new DataView(data.buffer, data.byteOffset)
