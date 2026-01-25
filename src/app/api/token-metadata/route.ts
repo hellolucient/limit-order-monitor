@@ -136,9 +136,12 @@ export async function GET(request: Request) {
     // Try to get decimals and mint authority from mint account
     try {
       const mintInfo = await connection.getParsedAccountInfo(mintPubkey)
-      if (mintInfo.value && 'parsed' in mintInfo.value && mintInfo.value.parsed.type === 'mint') {
-        tokenInfo.decimals = mintInfo.value.parsed.info.decimals
-        tokenInfo.mint_authority = mintInfo.value.parsed.info.mintAuthority || undefined
+      if (mintInfo.value && 'parsed' in mintInfo.value) {
+        const parsed = mintInfo.value.parsed as { type: string; info?: { decimals?: number; mintAuthority?: string | null } }
+        if (parsed.type === 'mint' && parsed.info) {
+          tokenInfo.decimals = parsed.info.decimals ?? 9
+          tokenInfo.mint_authority = parsed.info.mintAuthority || undefined
+        }
       }
     } catch (error) {
       // Use default decimals if we can't fetch
