@@ -2,85 +2,52 @@ import { NextResponse } from 'next/server'
 import { getTokenByMint } from '@/lib/types'
 import tokenLookupData from '@/lib/data/token-lookup.json'
 
-// Try to explicitly load .env file
-try {
-  const fs = require('fs')
-  const path = require('path')
-  const envPath = path.join(process.cwd(), '.env')
-  console.log('🔍 Looking for .env file at:', envPath)
-  console.log('🔍 Current working directory:', process.cwd())
-  
-  if (fs.existsSync(envPath)) {
-    console.log('✅ Found .env file')
-    const envFile = fs.readFileSync(envPath, 'utf8')
-    console.log('📄 .env file contents (FULL FILE):', envFile)
-    console.log('📄 Total lines in .env:', envFile.split('\n').length)
-    console.log('📄 All lines:', envFile.split('\n').map((l: string, i: number) => `${i + 1}: ${l}`))
+// Try to explicitly load .env file (development only)
+// In production (Vercel), env vars are injected automatically
+if (process.env.NODE_ENV === 'development') {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const envPath = path.join(process.cwd(), '.env')
     
-    let foundBirdeyeKey = false
-    const lines = envFile.split(/\r?\n/) // Handle both \n and \r\n line endings
-    console.log(`📄 Total lines in .env: ${lines.length}`)
-    
-    lines.forEach((line: string, index: number) => {
-      const trimmedLine = line.trim()
-      console.log(`📝 Raw line ${index + 1}: [${trimmedLine}] (length: ${trimmedLine.length})`)
+    if (fs.existsSync(envPath)) {
+      console.log('✅ Found .env file in development')
+      const envFile = fs.readFileSync(envPath, 'utf8')
+      let foundBirdeyeKey = false
+      const lines = envFile.split(/\r?\n/)
       
-      // Skip comments and empty lines
-      if (trimmedLine.startsWith('#') || !trimmedLine) {
-        console.log(`   → Skipping (comment or empty)`)
-        return
-      }
-      
-      // Try multiple regex patterns to match key=value
-      let match = trimmedLine.match(/^([^=:#]+)=(.*)$/)
-      if (!match) {
-        // Try with spaces around =
-        match = trimmedLine.match(/^([^=:#\s]+)\s*=\s*(.*)$/)
-      }
-      
-      if (match) {
-        const key = match[1].trim()
-        let value = match[2].trim()
-        // Remove quotes if present
-        value = value.replace(/^["']|["']$/g, '')
+      lines.forEach((line: string) => {
+        const trimmedLine = line.trim()
+        if (trimmedLine.startsWith('#') || !trimmedLine) return
         
-        console.log(`   → Parsed: key="${key}", value="${value.substring(0, 15)}..."`)
+        let match = trimmedLine.match(/^([^=:#]+)=(.*)$/)
+        if (!match) {
+          match = trimmedLine.match(/^([^=:#\s]+)\s*=\s*(.*)$/)
+        }
         
-        if (key === 'BIRDEYE_API_KEY') {
-          if (!process.env.BIRDEYE_API_KEY) {
+        if (match) {
+          const key = match[1].trim()
+          let value = match[2].trim()
+          value = value.replace(/^["']|["']$/g, '')
+          
+          if (key === 'BIRDEYE_API_KEY' && !process.env.BIRDEYE_API_KEY) {
             process.env.BIRDEYE_API_KEY = value
-            console.log('✅✅✅ Loaded BIRDEYE_API_KEY from .env file manually:', value.substring(0, 8) + '...')
+            console.log('✅ Loaded BIRDEYE_API_KEY from .env file')
             foundBirdeyeKey = true
-          } else {
-            console.log('⚠️ BIRDEYE_API_KEY already set in process.env')
           }
         }
-      } else {
-        console.log(`   → Could not parse line (no match)`)
+      })
+      
+      if (!foundBirdeyeKey) {
+        console.warn('⚠️ BIRDEYE_API_KEY not found in .env file')
       }
-    })
-    
-    if (!foundBirdeyeKey) {
-      console.warn('⚠️ BIRDEYE_API_KEY not found in .env file')
     }
-  } else {
-    console.warn('❌ .env file not found at:', envPath)
-    // Try alternative locations
-    const altPaths = [
-      path.join(__dirname, '../../../../.env'),
-      path.join(__dirname, '../../../.env'),
-      '.env'
-    ]
-    for (const altPath of altPaths) {
-      console.log('🔍 Trying alternative path:', altPath)
-      if (fs.existsSync(altPath)) {
-        console.log('✅ Found .env at alternative path:', altPath)
-        break
-      }
+  } catch (error) {
+    // Silently fail - env vars should be set via Vercel in production
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error loading .env file:', error)
     }
   }
-} catch (error) {
-  console.error('❌ Error manually loading .env file:', error)
 }
 
 // Simple in-memory cache
