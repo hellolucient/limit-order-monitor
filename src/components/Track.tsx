@@ -67,9 +67,18 @@ export function Track({ onTokenSelect }: TrackProps) {
         const response = await fetch(`/api/tokens/market-data?addresses=${addresses}`)
         
         if (response.ok) {
-          const data = await response.json()
-          const marketDataMap = new Map(
-            (data.tokens || []).map((token: any) => [token.address, token])
+          interface MarketDataToken {
+            address: string
+            currentPrice?: number | null
+            priceChange24h?: number | null
+            volume24hUSD?: number | null
+            marketCap?: number | null
+            liquidity?: number | null
+          }
+          
+          const data = await response.json() as { tokens?: MarketDataToken[] }
+          const marketDataMap = new Map<string, MarketDataToken>(
+            (data.tokens || []).map((token) => [token.address, token])
           )
           
           // Update tracked tokens with market data
@@ -78,12 +87,12 @@ export function Track({ onTokenSelect }: TrackProps) {
             if (marketData) {
               return {
                 ...token,
-                currentPrice: marketData.currentPrice,
-                price: marketData.currentPrice,
-                priceChange24h: marketData.priceChange24h,
-                volume24hUSD: marketData.volume24hUSD,
-                marketCap: marketData.marketCap,
-                liquidity: marketData.liquidity
+                currentPrice: marketData.currentPrice ?? null,
+                price: marketData.currentPrice ?? null,
+                priceChange24h: marketData.priceChange24h ?? null,
+                volume24hUSD: marketData.volume24hUSD ?? null,
+                marketCap: marketData.marketCap ?? null,
+                liquidity: marketData.liquidity ?? null
               }
             }
             return token
