@@ -15,7 +15,7 @@ try {
     const envFile = fs.readFileSync(envPath, 'utf8')
     console.log('📄 .env file contents (FULL FILE):', envFile)
     console.log('📄 Total lines in .env:', envFile.split('\n').length)
-    console.log('📄 All lines:', envFile.split('\n').map((l, i) => `${i + 1}: ${l}`))
+    console.log('📄 All lines:', envFile.split('\n').map((l: string, i: number) => `${i + 1}: ${l}`))
     
     let foundBirdeyeKey = false
     const lines = envFile.split(/\r?\n/) // Handle both \n and \r\n line endings
