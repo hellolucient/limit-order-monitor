@@ -22,15 +22,32 @@ interface TokenWithPrice extends TokenInfo {
 let terminalCache: {
   tokens: TokenWithPrice[]
   timestamp: number
+  version?: string // Cache version to invalidate old caches
 } | null = null
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes - refresh cache after this time
 const STORAGE_KEY = 'terminal-tokens-cache'
+const CACHE_VERSION = '2.0' // Increment this to invalidate old caches
+
+// Validate that cached tokens are from cooking endpoint (have market data)
+function isValidCookingCache(tokens: TokenWithPrice[]): boolean {
+  if (!tokens || tokens.length === 0) return false
+  
+  // Cooking tokens should have market data (price, volume, etc.)
+  // Legacy tokens won't have these fields
+  const hasMarketData = tokens.some(token => 
+    token.currentPrice !== undefined || 
+    token.priceChange24h !== undefined || 
+    token.volume24hUSD !== undefined
+  )
+  
+  return hasMarketData
+}
 
 // Note: localStorage loading is now done in useEffect to avoid hydration mismatches
 
 // Save cache to localStorage
-function saveCacheToStorage(cache: { tokens: TokenWithPrice[], timestamp: number }) {
+function saveCacheToStorage(cache: { tokens: TokenWithPrice[], timestamp: number, version?: string }) {
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cache))
@@ -54,8 +71,14 @@ export function Terminal({ onTokenSelect }: TerminalProps) {
         if (stored) {
           const parsed = JSON.parse(stored)
           const cacheAge = Date.now() - parsed.timestamp
-          // Use localStorage cache if it's less than 10 minutes old
-          if (cacheAge < 10 * 60 * 1000 && parsed.tokens && Array.isArray(parsed.tokens)) {
+          
+          // Validate cache version and structure
+          const isValidVersion = parsed.version === CACHE_VERSION || !parsed.version // Allow old caches without version
+          const hasValidTokens = parsed.tokens && Array.isArray(parsed.tokens) && parsed.tokens.length > 0
+          const isCookingData = isValidCookingCache(parsed.tokens || [])
+          
+          // Use localStorage cache if it's valid and less than 10 minutes old
+          if (cacheAge < 10 * 60 * 1000 && hasValidTokens && isValidVersion && isCookingData) {
             console.log('Terminal: Loaded cache from localStorage (age:', Math.round(cacheAge / 1000), 'seconds)')
             terminalCache = parsed
             setTokens(parsed.tokens)
@@ -69,27 +92,47 @@ export function Terminal({ onTokenSelect }: TerminalProps) {
               // Cache is fresh, we're done
               return
             }
+          } else {
+            // Invalid cache - clear it
+            if (!isCookingData) {
+              console.warn('Terminal: Invalid cache detected (legacy tokens without market data), clearing...')
+              localStorage.removeItem(STORAGE_KEY)
+            } else if (!isValidVersion) {
+              console.warn('Terminal: Cache version mismatch, clearing old cache...')
+              localStorage.removeItem(STORAGE_KEY)
+            }
           }
         }
       } catch (e) {
         console.warn('Terminal: Failed to load cache from localStorage:', e)
+        // Clear corrupted cache
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(STORAGE_KEY)
+        }
       }
     }
     
     // Check if we have fresh in-memory cache
     if (terminalCache) {
       const cacheAge = Date.now() - terminalCache.timestamp
-      if (cacheAge < CACHE_TTL) {
+      const isValid = isValidCookingCache(terminalCache.tokens)
+      
+      if (cacheAge < CACHE_TTL && isValid) {
         console.log('Terminal: Using existing cache, skipping fetch')
         setTokens(terminalCache.tokens)
         setLoading(false)
         return
       } else {
-        // Cache is stale but we're showing it - refresh in background
-        console.log('Terminal: Cache is stale, refreshing in background')
-        setTokens(terminalCache.tokens)
-        setLoading(false)
-        // Continue to fetch below
+        // Cache is stale or invalid - refresh
+        if (!isValid) {
+          console.warn('Terminal: Invalid cache in memory, clearing...')
+          terminalCache = null
+        } else {
+          console.log('Terminal: Cache is stale, refreshing in background')
+          setTokens(terminalCache.tokens)
+          setLoading(false)
+          // Continue to fetch below
+        }
       }
     }
 
@@ -141,7 +184,8 @@ export function Terminal({ onTokenSelect }: TerminalProps) {
           // Update cache
           terminalCache = {
             tokens: mappedTokens,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            version: CACHE_VERSION
           }
           
           // Save to localStorage
