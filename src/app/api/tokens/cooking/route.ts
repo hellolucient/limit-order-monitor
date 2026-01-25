@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { getTokenByMint } from '@/lib/types'
 import tokenLookupData from '@/lib/data/token-lookup.json'
 
-// Try to explicitly load .env file (development only)
-// In production (Vercel), env vars are injected automatically
+// Only load .env file in development - completely skipped in production
+// In production (Vercel), environment variables are injected automatically via process.env
 if (process.env.NODE_ENV === 'development') {
   try {
     const fs = require('fs')
@@ -11,14 +11,12 @@ if (process.env.NODE_ENV === 'development') {
     const envPath = path.join(process.cwd(), '.env')
     
     if (fs.existsSync(envPath)) {
-      console.log('✅ Found .env file in development')
       const envFile = fs.readFileSync(envPath, 'utf8')
-      let foundBirdeyeKey = false
       const lines = envFile.split(/\r?\n/)
       
-      lines.forEach((line: string) => {
+      for (const line of lines) {
         const trimmedLine = line.trim()
-        if (trimmedLine.startsWith('#') || !trimmedLine) return
+        if (trimmedLine.startsWith('#') || !trimmedLine) continue
         
         let match = trimmedLine.match(/^([^=:#]+)=(.*)$/)
         if (!match) {
@@ -32,21 +30,13 @@ if (process.env.NODE_ENV === 'development') {
           
           if (key === 'BIRDEYE_API_KEY' && !process.env.BIRDEYE_API_KEY) {
             process.env.BIRDEYE_API_KEY = value
-            console.log('✅ Loaded BIRDEYE_API_KEY from .env file')
-            foundBirdeyeKey = true
+            break
           }
         }
-      })
-      
-      if (!foundBirdeyeKey) {
-        console.warn('⚠️ BIRDEYE_API_KEY not found in .env file')
       }
     }
   } catch (error) {
-    // Silently fail - env vars should be set via Vercel in production
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error loading .env file:', error)
-    }
+    // Silently fail - not critical
   }
 }
 
