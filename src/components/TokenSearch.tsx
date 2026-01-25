@@ -126,7 +126,7 @@ export function TokenSearch({ onTokenSelect }: TokenSearchProps) {
             originalCount: data.tokens.length,
             afterMapping: mappedTokens.length,
             sampleToken: mappedTokens[0],
-            allHaveAddress: mappedTokens.every(t => t.address)
+            allHaveAddress: mappedTokens.every((t: SearchResult) => t.address)
           })
           
           setSearchResults(mappedTokens)
