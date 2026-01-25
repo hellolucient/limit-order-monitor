@@ -42,8 +42,8 @@ if (process.env.NODE_ENV === 'development') {
 
 // Simple in-memory cache
 let cachedResult: { tokens: any[], timestamp: number } | null = null
-const CACHE_TTL = 10 * 60 * 1000 // 10 minutes cache to respect Birdeye rate limit (60 rpm)
-const BACKGROUND_REFRESH_THRESHOLD = 8 * 60 * 1000 // Refresh in background if cache is older than 8 minutes
+const CACHE_TTL = 15 * 60 * 1000 // 15 minutes cache to respect Birdeye rate limit (60 rpm) and reduce API calls
+const BACKGROUND_REFRESH_THRESHOLD = 12 * 60 * 1000 // Refresh in background if cache is older than 12 minutes
 
 // Background refresh promise to prevent multiple simultaneous refreshes
 let backgroundRefreshPromise: Promise<void> | null = null
@@ -88,6 +88,11 @@ export async function GET(request: Request) {
     nodeEnv: process.env.NODE_ENV,
     allEnvKeys: Object.keys(process.env).filter(k => k.includes('BIRDEYE') || k.includes('API'))
   })
+
+  // Timeout safeguard: Vercel has 15-second timeout for Hobby plan
+  // Set a 12-second timeout to ensure we return before Vercel times out
+  const TIMEOUT_MS = 12000
+  const startTime = Date.now()
 
   try {
     // Use Birdeye API to get trending tokens based on actual swap volume
@@ -222,89 +227,116 @@ export async function GET(request: Request) {
     console.log(`📊 Tokens with data: ${tokensWithData.length}`)
     console.log(`📊 Price changes found:`, tokensWithData.slice(0, 5).map(t => t.priceChange))
     
-    // Get top 20 tokens by volume first (before filtering by price change)
+    // Get top 15 tokens by volume first (before filtering by price change)
+    // Reduced from 20 to 15 to reduce API calls and stay under timeout
     const topTokensByVolume = tokensWithData
       .filter(({ volume }) => volume > 0)
       .sort((a: any, b: any) => b.volume - a.volume)
-      .slice(0, 20)
+      .slice(0, 15)
       .map(({ token }) => token)
     
-    console.log(`📊 Top 20 tokens by volume selected, fetching price stats...`)
+    console.log(`📊 Top 15 tokens by volume selected, checking for price data...`)
     
-    // Fetch 24h price change data from Birdeye Price Stats API
-    // Use batch endpoint to get price stats for all tokens at once
-    const tokenAddresses = topTokensByVolume
+    // First, check if trending endpoint already has price change data
+    // Many Birdeye endpoints include priceChange24h in the response
+    const tokensWithPriceFromTrending = topTokensByVolume.map(token => {
+      const priceChange = token.price24hChangePercent || 
+                        token.priceChange24h || 
+                        token.price_change_24h || 
+                        token.priceChange24hPercent ||
+                        token.price_change_24h_percent ||
+                        null
+      return { token, hasPriceChange: priceChange !== null }
+    })
+    
+    // Only fetch additional price data for tokens that don't have it
+    // Limit to top 10 tokens max to stay under timeout
+    const tokensNeedingPriceData = tokensWithPriceFromTrending
+      .filter(({ hasPriceChange }) => !hasPriceChange)
+      .slice(0, 10)
+      .map(({ token }) => token)
+    
+    const tokenAddresses = tokensNeedingPriceData
       .map(t => t.address || t.mint)
       .filter((addr): addr is string => !!addr)
     
     let priceStatsMap: Record<string, any> = {}
     
+    // Only fetch price data if needed and limit to avoid timeout
     if (tokenAddresses.length > 0 && birdeyeApiKey) {
       try {
-        console.log(`📊 Fetching current and historical prices for ${tokenAddresses.length} tokens...`)
-        console.log(`📊 Rate limiting: Birdeye allows 60 rpm, spacing requests by ~1 second`)
-        
-        // Throttle function: Birdeye allows 60 rpm = 1 request per second
-        // We'll space requests by 1.1 seconds to be safe
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-        
-        // Fetch current prices sequentially with throttling to avoid rate limits
-        // The current price endpoint already includes priceChange24h, so we don't need historical endpoint!
-        const tokensToFetch = tokenAddresses.slice(0, 20) // Can fetch more since we're only making 1 call per token
-        console.log(`📊 Fetching price data (with 24h change) for ${tokensToFetch.length} tokens`)
-        
-        const priceResults = []
-        for (let i = 0; i < tokensToFetch.length; i++) {
-          const address = tokensToFetch[i]
+        // Check timeout before starting expensive operations
+        const elapsed = Date.now() - startTime
+        if (elapsed > TIMEOUT_MS - 3000) { // Leave 3 seconds buffer
+          console.warn(`⚠️ Approaching timeout (${elapsed}ms), skipping price fetches`)
+          // Continue without price stats
+        } else {
+          console.log(`📊 Fetching price data for ${tokenAddresses.length} tokens that need it...`)
           
-          // Add delay between requests (except first one)
-          if (i > 0) {
-            await delay(1100) // 1.1 seconds between requests
+          // Use parallel batching: fetch 3 tokens at a time to respect rate limits
+          // but still be faster than sequential
+          const BATCH_SIZE = 3
+          const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+          
+          const priceResults = []
+          for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
+            // Check timeout before each batch
+            const elapsed = Date.now() - startTime
+            if (elapsed > TIMEOUT_MS - 2000) { // Leave 2 seconds buffer
+              console.warn(`⚠️ Approaching timeout (${elapsed}ms), stopping price fetches`)
+              break
+            }
+            
+            const batch = tokenAddresses.slice(i, i + BATCH_SIZE)
+          
+          // Fetch batch in parallel
+          const batchPromises = batch.map(async (address) => {
+            try {
+              const currentPriceResponse = await fetch(
+                `https://public-api.birdeye.so/defi/price?address=${address}`,
+                {
+                  headers: {
+                    'X-API-KEY': birdeyeApiKey,
+                    'Accept': 'application/json'
+                  }
+                }
+              )
+              
+              // Check for rate limit
+              if (currentPriceResponse.status === 429) {
+                console.warn(`⚠️ Rate limited on price fetch for ${address}`)
+                return { address, currentPrice: null, priceChange24h: null, rateLimited: true }
+              }
+              
+              let currentPrice: number | null = null
+              let priceChange24h: number | null = null
+              
+              if (currentPriceResponse.ok) {
+                const currentData = await currentPriceResponse.json()
+                currentPrice = currentData?.data?.value || currentData?.value || currentData?.price || currentData?.data?.price || null
+                priceChange24h = currentData?.data?.priceChange24h ?? null
+              }
+              
+              return { address, currentPrice, priceChange24h, rateLimited: false }
+            } catch (error) {
+              console.warn(`⚠️ Failed to fetch price for ${address}:`, error)
+              return { address, currentPrice: null, priceChange24h: null, rateLimited: false }
+            }
+          })
+          
+          const batchResults = await Promise.all(batchPromises)
+          priceResults.push(...batchResults)
+          
+          // Check if we hit rate limit
+          if (batchResults.some(r => r.rateLimited)) {
+            console.warn(`⚠️ Rate limited, stopping price fetches`)
+            break
           }
           
-          try {
-            // Fetch current price (which includes priceChange24h!)
-            const currentPriceResponse = await fetch(
-              `https://public-api.birdeye.so/defi/price?address=${address}`,
-              {
-                headers: {
-                  'X-API-KEY': birdeyeApiKey,
-                  'Accept': 'application/json'
-                }
-              }
-            )
-            
-            // Check for rate limit
-            if (currentPriceResponse.status === 429) {
-              console.warn(`⚠️ Rate limited on price fetch for ${address}, stopping`)
-              break // Stop fetching, use what we have
-            }
-            
-            let currentPrice: number | null = null
-            let priceChange24h: number | null = null
-            
-            if (currentPriceResponse.ok) {
-              const currentData = await currentPriceResponse.json()
-              // Birdeye price endpoint returns { data: { value: number, priceChange24h: number } }
-              currentPrice = currentData?.data?.value || currentData?.value || currentData?.price || currentData?.data?.price || null
-              priceChange24h = currentData?.data?.priceChange24h ?? null
-              
-              if (priceChange24h !== null) {
-                console.log(`✅ Got price data for ${address}: price=${currentPrice}, change24h=${priceChange24h}%`)
-              }
-            } else {
-              const errorText = await currentPriceResponse.text().catch(() => '')
-              console.warn(`⚠️ Price response not OK for ${address}:`, currentPriceResponse.status, errorText.substring(0, 100))
-            }
-            
-            priceResults.push({
-              address,
-              currentPrice,
-              priceChange24h
-            })
-          } catch (error) {
-            console.warn(`⚠️ Failed to fetch price for ${address}:`, error)
-            priceResults.push({ address, currentPrice: null, priceChange24h: null })
+          // Small delay between batches to respect rate limits (60 rpm = 1 per second)
+          // But we're doing 3 in parallel, so we can wait 1 second between batches
+          if (i + BATCH_SIZE < tokenAddresses.length) {
+            await delay(1000) // 1 second between batches
           }
         }
         
@@ -319,22 +351,12 @@ export async function GET(request: Request) {
         })
         
         console.log(`📊 Price data fetched for ${Object.keys(priceStatsMap).length} tokens`)
-        const tokensWithPriceData = priceResults.filter(r => r.priceChange24h !== null)
-        console.log(`📊 Tokens with valid price change: ${tokensWithPriceData.length}`)
-        if (tokensWithPriceData.length > 0) {
-          const sample = tokensWithPriceData[0]
-          console.log(`📊 Sample price data:`, {
-            address: sample.address,
-            currentPrice: sample.currentPrice,
-            priceChange24h: sample.priceChange24h
-          })
-        } else {
-          console.warn(`⚠️ No tokens have valid price change data!`)
-        }
       } catch (error) {
         console.warn(`⚠️ Failed to fetch price data:`, error)
         // Continue without price stats - we'll use volume only
       }
+    } else {
+      console.log(`📊 All tokens already have price data from trending endpoint`)
     }
     
     // Merge price stats with trending tokens
@@ -414,7 +436,7 @@ export async function GET(request: Request) {
       const fallbackTokens = tokensWithPriceData
         .filter(({ volume }) => volume > 0)
         .sort((a: any, b: any) => b.volume - a.volume)
-        .slice(0, 20)
+        .slice(0, 15) // Reduced from 20 to 15
       
       const fallbackTokensWithMetadata = await Promise.all(
         fallbackTokens.map(async ({ token, priceChange, currentPrice }) => {
@@ -456,6 +478,21 @@ export async function GET(request: Request) {
         criteria: 'Most purchased tokens (24h volume) - no positive price change filter applied',
         note: 'No tokens had positive 24h price change, showing top by volume instead'
       })
+    }
+    
+    // Check timeout before expensive metadata fetching
+    const elapsedBeforeMetadata = Date.now() - startTime
+    if (elapsedBeforeMetadata > TIMEOUT_MS - 2000) {
+      console.warn(`⚠️ Approaching timeout (${elapsedBeforeMetadata}ms), returning cached data if available`)
+      if (cachedResult) {
+        return NextResponse.json({
+          count: cachedResult.tokens.length,
+          tokens: cachedResult.tokens,
+          source: 'stale-cache-timeout',
+          cached: true,
+          warning: 'Request taking too long, returning cached data'
+        })
+      }
     }
     
     // Fetch full token metadata and format
