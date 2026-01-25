@@ -33,7 +33,14 @@ export function TokenInput({ onTokenSelect }: Props) {
         onTokenSelect(token);
       } else {
         console.log('Token not found')
-        setError('Token not found');
+        // Only show error if token is truly invalid (not just missing metadata)
+        // If we got a token back (even with "Unknown Token" name), it's valid
+        if (!token) {
+          setError('Token not found');
+        } else {
+          // Token exists but might not have metadata - that's okay
+          onTokenSelect(token);
+        }
       }
     } catch (error) {
       console.error('Error:', error);

@@ -71,26 +71,22 @@ async function fetchTokenMetadataWithRetry(mintAddress: string, retries = 3): Pr
         continue // Retry
       }
       
-      if (response.status === 404) {
-        // Token not found - cache null
-        tokenCache.set(mintAddress, null)
-        return null
+      // API now always returns 200 with token info (even if metadata missing)
+      // So we should always get a valid response
+      if (response.ok) {
+        const token = await response.json()
+        const tokenInfo = token as TokenInfo
+        // Cache successful lookups (even if name is "Unknown Token")
+        tokenCache.set(mintAddress, tokenInfo)
+        return tokenInfo
       }
       
-      if (!response.ok) {
-        // Other error - don't retry immediately, but don't cache
-        if (attempt === retries - 1) {
-          return null
-        }
-        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)))
-        continue
+      // For other errors, don't retry immediately
+      if (attempt === retries - 1) {
+        return null
       }
-
-      const token = await response.json()
-      const tokenInfo = token as TokenInfo
-      // Cache successful lookups
-      tokenCache.set(mintAddress, tokenInfo)
-      return tokenInfo
+      await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)))
+      continue
     } catch (error) {
       if (attempt === retries - 1) {
         return null
