@@ -205,7 +205,7 @@ export function TokenSection({
       {/* Order Lists - Stack on mobile, side by side on desktop */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Buy Orders */}
-        <div className="bg-[#1e1f2e] rounded-lg flex flex-col" style={{ height: '500px' }}>
+        <div className="bg-[#1e1f2e] rounded-lg flex flex-col min-h-[300px] max-h-[500px]">
           <div className="p-1.5 border-b border-gray-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -231,7 +231,7 @@ export function TokenSection({
         </div>
 
         {/* Sell Orders */}
-        <div className="bg-[#1e1f2e] rounded-lg flex flex-col" style={{ height: '500px' }}>
+        <div className="bg-[#1e1f2e] rounded-lg flex flex-col min-h-[300px] max-h-[500px]">
           <div className="p-1.5 border-b border-gray-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">

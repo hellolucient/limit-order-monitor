@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Fix workspace root to ensure .env file is loaded from correct directory
+  outputFileTracingRoot: require('path').join(__dirname),
+  
+  // Explicitly expose environment variables for API routes
+  env: {
+    BIRDEYE_API_KEY: process.env.BIRDEYE_API_KEY,
+  },
   webpack: (config, { isServer }) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

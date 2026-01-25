@@ -7,6 +7,9 @@ import { TokenInput } from '../components/TokenInput'
 import { TradingIntervals } from '../components/TradingIntervals'
 import { TradeInterface, TradeData } from '../components/TradeInterface'
 import { WalletButton } from '../components/WalletButton'
+import { Terminal } from '../components/Terminal'
+import { MobileTabs, TabType } from '../components/MobileTabs'
+import { TokenSearch } from '../components/TokenSearch'
 import { TokenInfo } from '../lib/types'
 import { PriceService } from '@/lib/services/PriceService'
 import { JupiterLimitOrderService } from '@/lib/services/JupiterLimitOrderService'
@@ -17,6 +20,7 @@ import { LimitOrder } from '../lib/types'
 export default function Home() {
   const { publicKey, signTransaction, sendTransaction, connected } = useWallet()
   const { connection } = useConnection()
+  const [activeTab, setActiveTab] = useState<TabType>('terminal')
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null)
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [tokenPrices, setTokenPrices] = useState<Map<string, number>>(new Map())
@@ -26,6 +30,12 @@ export default function Home() {
   const [isPriceFetching, setIsPriceFetching] = useState(false)
   const [selectedInterval, setSelectedInterval] = useState<PriceInterval | null>(null)
   const [isExecutingTrade, setIsExecutingTrade] = useState(false)
+
+  // When a token is selected from Terminal, switch to Track tab
+  const handleTokenSelect = (token: TokenInfo) => {
+    setSelectedToken(token)
+    setActiveTab('track')
+  }
 
   // Get orders for selected token
   const { orders, loading: ordersLoading, refresh: refreshOrders } = useLimitOrders(
@@ -122,11 +132,6 @@ export default function Home() {
       setTokenPrices(new Map())
     }
   }, [selectedToken, refreshPrice])
-
-  const handleTokenSelect = (token: TokenInfo) => {
-    console.log('Selected token:', token)
-    setSelectedToken(token)
-  }
 
   const handleOrderClick = (order: LimitOrder) => {
     // Convert the clicked order to a PriceInterval and set it as selected
@@ -289,99 +294,120 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="max-w-5xl mx-auto px-4 py-2">
-        <div className="flex items-center justify-between mb-3">
+    <main className="min-h-screen bg-black text-white pb-20">
+      {/* Mobile Header */}
+      <div className="sticky top-0 z-40 bg-black border-b border-gray-800">
+        <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-bold">Trade Into Open Orders</h1>
           <WalletButton />
         </div>
-        
-        <div className="mb-3">
-          <TokenInput onTokenSelect={handleTokenSelect} />
-        </div>
+      </div>
 
-        {selectedToken && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between bg-gray-800 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-3">
-                {selectedToken.logoURI && (
-                  <img 
-                    src={selectedToken.logoURI} 
-                    alt={selectedToken.name}
-                    className="w-8 h-8 rounded-full border border-gray-600"
-                    onError={(e) => {
-                      // Hide image if it fails to load
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }}
+      {/* Tab Content */}
+      <div className="min-h-[calc(100vh-80px)]">
+        {activeTab === 'terminal' ? (
+          <Terminal onTokenSelect={handleTokenSelect} />
+        ) : (
+          <div className="px-4 py-4">
+            {!selectedToken ? (
+              <TokenSearch onTokenSelect={handleTokenSelect} />
+            ) : (
+              <div className="space-y-4">
+                {/* Token Header Card - Mobile Optimized */}
+                <div className="bg-[#1e1f2e] rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    {selectedToken.logoURI && (
+                      <img 
+                        src={selectedToken.logoURI} 
+                        alt={selectedToken.name}
+                        className="w-12 h-12 rounded-full border border-gray-600"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none'
+                        }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-semibold text-white truncate">
+                        {selectedToken.name}
+                      </h2>
+                      <p className="text-sm text-gray-400 truncate">
+                        {selectedToken.symbol} • {selectedToken.address.slice(0, 8)}...
+                      </p>
+                    </div>
+                    {currentPrice !== null && (
+                      <div className="text-right">
+                        <div className="text-lg font-semibold text-white">
+                          ${currentPrice.toFixed(6)}
+                        </div>
+                        <div className="text-xs text-gray-400">USDC</div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Action Buttons - Mobile Friendly */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleRefreshPrice}
+                      disabled={isPriceRefreshing}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-sm text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {isPriceRefreshing ? 'Refreshing...' : 'Refresh Price'}
+                    </button>
+                    <button
+                      onClick={handleRefreshOrders}
+                      disabled={isOrdersRefreshing}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-sm text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {isOrdersRefreshing ? 'Refreshing...' : 'Refresh Orders'}
+                    </button>
+                    <label className="flex items-center px-3 py-2 bg-gray-700 rounded text-sm text-gray-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mr-2 h-4 w-4"
+                        checked={autoRefresh}
+                        onChange={(e) => setAutoRefresh(e.target.checked)}
+                      />
+                      Auto-refresh
+                    </label>
+                  </div>
+                </div>
+
+                {/* Trading Interface - Stacked on Mobile */}
+                <div className="space-y-4">
+                  <TradingIntervals
+                    buyOrders={buyOrders}
+                    sellOrders={sellOrders}
+                    tokenSymbol={selectedToken.symbol}
+                    currentPrice={currentPrice}
+                    onSelectInterval={setSelectedInterval}
                   />
-                )}
-                <span className="text-lg font-semibold text-white">{selectedToken.name}</span>
-                <span className="text-sm text-gray-400">
-                  {selectedToken.address.slice(0, 7)}...
-                </span>
-                {currentPrice !== null && (
-                  <span className="text-lg text-white">
-                    ${currentPrice.toFixed(6)} USDC
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleRefreshPrice}
-                  disabled={isPriceRefreshing}
-                  className={`px-2 py-1 bg-blue-600 text-xs text-white rounded hover:bg-blue-700 disabled:opacity-50 ${isPriceRefreshing ? 'opacity-50' : ''}`}
-                >
-                  {isPriceRefreshing ? 'Refreshing Price...' : 'Refresh Price'}
-                </button>
-                <button
-                  onClick={handleRefreshOrders}
-                  disabled={isOrdersRefreshing}
-                  className={`px-2 py-1 bg-blue-600 text-xs text-white rounded hover:bg-blue-700 disabled:opacity-50 ${isOrdersRefreshing ? 'opacity-50' : ''}`}
-                >
-                  {isOrdersRefreshing ? 'Refreshing Orders...' : 'Refresh Orders'}
-                </button>
-                <label className="flex items-center text-xs text-gray-400">
-                  <input
-                    type="checkbox"
-                    className="mr-1 h-3 w-3"
-                    checked={autoRefresh}
-                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                  <TradeInterface
+                    selectedInterval={selectedInterval}
+                    tokenInfo={selectedToken}
+                    currentPrice={currentPrice}
+                    tokenPrices={tokenPrices}
+                    onTrade={handleTrade}
+                    isExecuting={isExecutingTrade}
                   />
-                  Auto-refresh
-                </label>
+                </div>
+                
+                {/* Individual Orders Section */}
+                <TokenSection 
+                  tokenConfig={selectedToken} 
+                  currentPrice={currentPrice || 0}
+                  tokenPrices={tokenPrices}
+                  autoRefresh={autoRefresh}
+                  isPriceFetching={isPriceFetching}
+                  onOrderClick={handleOrderClick}
+                />
               </div>
-            </div>
-            {/* Trading Interface Section - Top Priority */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              <TradingIntervals
-                buyOrders={buyOrders}
-                sellOrders={sellOrders}
-                tokenSymbol={selectedToken.symbol}
-                currentPrice={currentPrice}
-                onSelectInterval={setSelectedInterval}
-              />
-              <TradeInterface
-                selectedInterval={selectedInterval}
-                tokenInfo={selectedToken}
-                currentPrice={currentPrice}
-                tokenPrices={tokenPrices}
-                onTrade={handleTrade}
-                isExecuting={isExecutingTrade}
-              />
-            </div>
-            
-            {/* Individual Orders Section - Bottom, Smaller */}
-            <TokenSection 
-              tokenConfig={selectedToken} 
-              currentPrice={currentPrice || 0}
-              tokenPrices={tokenPrices}
-              autoRefresh={autoRefresh}
-              isPriceFetching={isPriceFetching}
-              onOrderClick={handleOrderClick}
-            />
+            )}
           </div>
         )}
       </div>
+
+      {/* Bottom Tab Navigation */}
+      <MobileTabs activeTab={activeTab} onTabChange={setActiveTab} />
     </main>
   )
 }

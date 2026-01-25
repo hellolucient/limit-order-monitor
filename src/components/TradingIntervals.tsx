@@ -116,7 +116,7 @@ export function TradingIntervals({
   }
 
   return (
-    <div className="bg-[#1e1f2e] rounded-lg p-4 flex flex-col" style={{ height: '750px' }}>
+    <div className="bg-[#1e1f2e] rounded-lg p-4 flex flex-col min-h-[400px] max-h-[600px]">
       {/* Tabs */}
       <div className="flex gap-2 mb-3 flex-shrink-0">
         <button

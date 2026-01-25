@@ -35,4 +35,20 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #718096;
+}
+
+/* Mobile-first safe area support */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mobile touch targets - minimum 44x44px */
+button, a {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Improve mobile scrolling */
+html {
+  -webkit-overflow-scrolling: touch;
 } 

@@ -149,7 +149,7 @@ export function TradeInterface({
     : 0
 
   return (
-    <div className="bg-[#1e1f2e] rounded-lg p-4 flex flex-col" style={{ height: '750px' }}>
+    <div className="bg-[#1e1f2e] rounded-lg p-4 flex flex-col min-h-[400px] max-h-[600px]">
       <h3 className="text-sm font-medium mb-3 text-gray-300 flex-shrink-0">Trade into Orders</h3>
       
       <div className="space-y-4 flex-1 overflow-y-auto min-h-0">
